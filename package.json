@@ -9,7 +9,8 @@
     "build": "echo 'No build step required'"
   },
   "dependencies": {
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "ws": "^8.14.2"
   },
   "engines": {
     "node": ">=16.0.0"
@@ -18,7 +19,7 @@
     "type": "git",
     "url": "https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git"
   },
-  "keywords": ["ai", "terminal", "consciousness", "286", "retro"],
+  "keywords": ["ai", "terminal", "consciousness", "286", "retro", "youtube", "streaming"],
   "author": "Your Name",
   "license": "MIT"
 }
