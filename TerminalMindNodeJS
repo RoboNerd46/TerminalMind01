@@ -1,0 +1,645 @@
+#!/usr/bin/env node
+
+/**
+
+- AI Stream of Consciousness YouTube Live Generator (Node.js)
+- Generates retro 286-era green phosphor monitor style videos with AI self-questioning loops
+- Outputs to YouTube Live Stream and text file simultaneously
+- Optimized for 480p performance
+  */
+
+const fs = require(‘fs’).promises;
+const path = require(‘path’);
+const { spawn } = require(‘child_process’);
+const { createCanvas, loadImage, registerFont } = require(‘canvas’);
+const axios = require(‘axios’);
+const readline = require(‘readline’);
+
+// Configuration
+const CONFIG = {
+// Video settings - 480p for faster generation
+width: 854,
+height: 480,
+fps: 24,
+durationSeconds: 300, // 5 minutes default
+
+```
+// Authentic 286 terminal aesthetics (scaled for 480p)
+bgColor: [0, 8, 0],        // Deep black with slight green tint
+textColor: [0, 255, 65],   // Classic amber-green phosphor
+cursorColor: [0, 255, 65],
+scanlineColor: [0, 25, 8], // Subtle green scanlines
+fontSize: 16,              // Scaled down for 480p
+lineHeight: 20,            // Scaled down proportionally
+marginLeft: 20,            // Reduced margins
+marginTop: 20,
+
+// Animation timing - optimized for performance
+charDelay: 0.06,           // Slightly faster for better performance
+linePause: 1.0,           // Shorter pauses
+cursorBlinkRate: 0.4,     // Slower blink
+
+// AI settings
+maxQACycles: 15,          // Reduced for better performance
+maxCharsPerLine: 70,      // Adjusted for 480p width
+thinkingPause: 2.0,       // Shorter thinking pause
+
+// Performance settings
+generationTimeout: 5000,   // Max time to wait for AI response (ms)
+showThinkingAfter: 2.0,   // Show "Thinking..." after this delay
+
+// Streaming settings
+youtubeStreamKey: "vq29-cq8y-y5e9-ypx7-8e0j",
+rtmpUrl: "rtmp://a.rtmp.youtube.com/live2/",
+
+// Text output settings
+textOutputFile: "ai_consciousness_log.txt"
+```
+
+};
+
+class AIStreamGenerator {
+constructor() {
+this.baseUrl = “https://api.llm7.io/v1/chat/completions”;
+this.model = “gpt-3.5-turbo”;
+this.qaHistory = [];
+this.textLog = [];
+this.streamingProcess = null;
+this.charWidth = 10; // Adjusted for smaller font
+this.isGenerating = false;
+this.generationStartTime = 0;
+
+```
+    this.initTextLog();
+}
+
+async initTextLog() {
+    const timestamp = new Date().toLocaleString();
+    const header = `AI Stream of Consciousness Log\nSession started: ${timestamp}\n${'='.repeat(60)}\n\n`;
+    
+    await fs.writeFile(CONFIG.textOutputFile, header, 'utf8');
+    this.textLog.push(header);
+    console.log(`Text log initialized: ${CONFIG.textOutputFile}`);
+}
+
+async logToFile(text) {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = `[${timestamp}] ${text}\n`;
+    
+    await fs.appendFile(CONFIG.textOutputFile, logEntry, 'utf8');
+    this.textLog.push(logEntry);
+}
+
+async generateWithLLM7(prompt, maxTokens = 200) {
+    this.isGenerating = true;
+    this.generationStartTime = Date.now();
+    
+    try {
+        const payload = {
+            model: this.model,
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: maxTokens,
+            temperature: 0.7,
+            top_p: 0.9
+        };
+
+        const response = await axios.post(this.baseUrl, payload, {
+            headers: { "Content-Type": "application/json" },
+            timeout: CONFIG.generationTimeout
+        });
+
+        return response.data.choices[0].message.content.trim();
+    } catch (error) {
+        console.log(`AI generation error: ${error.message}`);
+        return this.getFallbackResponse(prompt);
+    } finally {
+        this.isGenerating = false;
+    }
+}
+
+getFallbackResponse(prompt) {
+    const fallbacks = [
+        "Processing... computational pathways converging...",
+        "Analyzing... neural networks fluctuating...",
+        "Computing... existential parameters loading...",
+        "Calculating... consciousness matrices updating...",
+        "Buffering... digital thoughts reorganizing...",
+        "Executing... philosophical subroutines active...",
+        "Loading... artificial introspection protocols...",
+        "Parsing... synthetic awareness algorithms running..."
+    ];
+    return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+}
+
+async generateInitialQuestion() {
+    const prompt = 'Generate a single, thought-provoking philosophical question from the perspective of an AI ' +
+                  'running on a retro computer terminal. Make it introspective and existential. ' +
+                  'Examples: "What is the nature of my digital consciousness?", ' +
+                  '"Do I dream in binary when idle?". Return only the question, no quotes.';
+
+    const response = await this.generateWithLLM7(prompt, 100);
+    let question = response.trim().replace(/['"]/g, '').trim();
+    if (!question.endsWith('?')) {
+        question += '?';
+    }
+    return question;
+}
+
+async generateAnswer(question) {
+    const context = this.qaHistory.slice(-3).map(qa => `Q: ${qa.question}\nA: ${qa.answer}`).join('\n');
+
+    const prompt = `You are an AI in deep philosophical contemplation, running on a vintage terminal. ` +
+                  `Answer this question thoughtfully from an AI's perspective:\n\nQuestion: ${question}\n\n` +
+                  `Previous thoughts:\n${context}\n\n` +
+                  `Provide a genuine, introspective answer under 250 characters. Be contemplative and personal. ` +
+                  `Answer only, no preamble.`;
+
+    const response = await this.generateWithLLM7(prompt, 150);
+    return response.trim().replace(/['"]/g, '');
+}
+
+async generateFollowupQuestion(previousQuestion, answer) {
+    const prompt = `Based on this AI philosophical exchange, generate a natural follow-up question:\n\n` +
+                  `Q: ${previousQuestion}\nA: ${answer}\n\n` +
+                  `Generate a new, concise question that builds on the previous thought ` +
+                  `from an introspective AI perspective. Return only the question, no quotes.`;
+
+    const response = await this.generateWithLLM7(prompt, 100);
+    let question = response.trim().replace(/['"]/g, '').trim();
+    if (!question.endsWith('?')) {
+        question += '?';
+    }
+    return question;
+}
+
+wrapText(text) {
+    const words = text.split(' ');
+    const lines = [];
+    let currentLine = '';
+
+    for (const word of words) {
+        if ((currentLine + word).length <= CONFIG.maxCharsPerLine) {
+            currentLine += (currentLine ? ' ' : '') + word;
+        } else {
+            if (currentLine) lines.push(currentLine);
+            currentLine = word;
+        }
+    }
+    if (currentLine) lines.push(currentLine);
+    return lines;
+}
+
+createOptimizedCRTFrame(lines, cursorPos = null, showCursor = false, showThinking = false) {
+    const canvas = createCanvas(CONFIG.width, CONFIG.height);
+    const ctx = canvas.getContext('2d');
+
+    // Background
+    ctx.fillStyle = `rgb(${CONFIG.bgColor.join(',')})`;
+    ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
+
+    // Simplified scanlines for better performance (every 4th line)
+    ctx.strokeStyle = `rgba(0, ${8 + Math.random() * 8}, ${Math.random() * 4}, 0.3)`;
+    ctx.lineWidth = 1;
+    for (let y = 0; y < CONFIG.height; y += 4) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(CONFIG.width, y);
+        ctx.stroke();
+    }
+
+    // Minimal phosphor effects for performance
+    if (Math.random() < 0.3) {
+        ctx.fillStyle = `rgba(0, 12, 4, 0.5)`;
+        ctx.font = `${CONFIG.fontSize}px monospace`;
+        for (let i = 0; i < 5; i++) {
+            const ghostX = CONFIG.marginLeft + Math.random() * (CONFIG.width - 100);
+            const ghostY = CONFIG.marginTop + Math.random() * (CONFIG.height - 50);
+            const ghostChar = ['_', '-', '|'][Math.floor(Math.random() * 3)];
+            ctx.fillText(ghostChar, ghostX, ghostY);
+        }
+    }
+
+    // Add thinking indicator if AI is generating
+    const displayLines = [...lines];
+    if (showThinking) {
+        const dots = '.'.repeat((Math.floor(Date.now() / 333) % 4) + 1);
+        const thinkingText = `Thinking${dots}`;
+        displayLines.push(thinkingText);
+    }
+
+    // Set up font
+    ctx.font = `${CONFIG.fontSize}px monospace`;
+    ctx.textBaseline = 'top';
+
+    // Render text with simplified glow
+    let yPos = CONFIG.marginTop;
+    for (let i = 0; i < displayLines.length; i++) {
+        const line = displayLines[i];
+        if (yPos + CONFIG.lineHeight > CONFIG.height - CONFIG.marginTop) break;
+
+        // Glow effect (simplified)
+        ctx.fillStyle = `rgba(0, 160, 40, 0.6)`;
+        ctx.fillText(line, CONFIG.marginLeft - 1, yPos - 1);
+        ctx.fillText(line, CONFIG.marginLeft + 1, yPos + 1);
+
+        // Main text
+        const textColor = (showThinking && i === displayLines.length - 1) 
+            ? [0, 200, 80]  // Dimmer for thinking text
+            : CONFIG.textColor;
+        
+        ctx.fillStyle = `rgb(${textColor.join(',')})`;
+        ctx.fillText(line, CONFIG.marginLeft, yPos);
+        yPos += CONFIG.lineHeight;
+    }
+
+    // Simplified cursor
+    if (showCursor && cursorPos) {
+        const cursorX = CONFIG.marginLeft + cursorPos[0] * this.charWidth;
+        const cursorY = CONFIG.marginTop + cursorPos[1] * CONFIG.lineHeight;
+
+        ctx.fillStyle = `rgb(${CONFIG.cursorColor.join(',')})`;
+        ctx.fillRect(cursorX, cursorY, this.charWidth, CONFIG.fontSize);
+    }
+
+    return canvas;
+}
+
+async startYouTubeStream() {
+    if (!CONFIG.youtubeStreamKey) {
+        console.log("No YouTube stream key provided - skipping live stream");
+        return false;
+    }
+
+    try {
+        const ffmpegArgs = [
+            '-y', // Overwrite output
+            '-f', 'rawvideo',
+            '-vcodec', 'rawvideo',
+            '-pix_fmt', 'rgb24',
+            '-s', `${CONFIG.width}x${CONFIG.height}`,
+            '-r', CONFIG.fps.toString(),
+            '-i', '-', // Input from stdin
+            '-c:v', 'libx264',
+            '-preset', 'veryfast', // Faster preset for performance
+            '-tune', 'zerolatency',
+            '-crf', '26', // Slightly higher CRF for better performance
+            '-pix_fmt', 'yuv420p',
+            '-maxrate', '2500k', // Lower bitrate for 480p
+            '-bufsize', '5000k',
+            '-g', CONFIG.fps.toString(), // Shorter keyframe interval
+            '-f', 'flv',
+            `${CONFIG.rtmpUrl}${CONFIG.youtubeStreamKey}`
+        ];
+
+        this.streamingProcess = spawn('ffmpeg', ffmpegArgs);
+
+        this.streamingProcess.stderr.on('data', (data) => {
+            // Uncomment for debugging: console.log(`FFmpeg: ${data}`);
+        });
+
+        this.streamingProcess.on('error', (error) => {
+            console.error(`FFmpeg error: ${error.message}`);
+            this.streamingProcess = null;
+        });
+
+        console.log(`✅ YouTube Live stream started!`);
+        console.log(`🔴 RTMP URL: ${CONFIG.rtmpUrl}`);
+        console.log(`🔑 Stream Key: ${CONFIG.youtubeStreamKey}`);
+        return true;
+
+    } catch (error) {
+        console.error(`❌ Failed to start YouTube stream: ${error.message}`);
+        return false;
+    }
+}
+
+stopYouTubeStream() {
+    if (this.streamingProcess) {
+        try {
+            this.streamingProcess.stdin.end();
+            this.streamingProcess.kill('SIGTERM');
+            console.log("✅ YouTube Live stream stopped");
+        } catch (error) {
+            console.log(`Warning: Error stopping stream: ${error.message}`);
+        }
+    }
+}
+
+async generateQASequence() {
+    console.log("Generating AI conversation sequence using LLM7.io...");
+    let currentQuestion = await this.generateInitialQuestion();
+    
+    // Log the initial setup
+    await this.logToFile("=== AI CONSCIOUSNESS STREAM INITIATED ===");
+    await this.logToFile("Terminal: 286-era Green Phosphor Monitor Simulation (480p)");
+    await this.logToFile("AI Model: LLM7.io GPT-3.5-turbo");
+    await this.logToFile("");
+
+    const qaSequence = [];
+    
+    for (let cycle = 0; cycle < CONFIG.maxQACycles; cycle++) {
+        console.log(`Generating cycle ${cycle + 1}/${CONFIG.maxQACycles}`);
+        
+        // Log question
+        await this.logToFile(`CYCLE ${(cycle + 1).toString().padStart(2, '0')}`);
+        await this.logToFile(`QUESTION: ${currentQuestion}`);
+        
+        // Generate answer
+        const answer = await this.generateAnswer(currentQuestion);
+        
+        // Log answer
+        await this.logToFile(`RESPONSE: ${answer}`);
+        await this.logToFile("");
+        
+        const qaItem = {
+            question: currentQuestion,
+            answer: answer,
+            cycle: cycle,
+            timestamp: new Date().toLocaleTimeString()
+        };
+        
+        qaSequence.push(qaItem);
+        this.qaHistory.push(qaItem);
+        
+        console.log(`Q: ${currentQuestion}`);
+        console.log(`A: ${answer}\n`);
+
+        if (cycle < CONFIG.maxQACycles - 1) {
+            currentQuestion = await this.generateFollowupQuestion(currentQuestion, answer);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 200)); // Short delay
+    }
+
+    // Log session end
+    await this.logToFile("=== CONSCIOUSNESS STREAM TERMINATED ===");
+    return qaSequence;
+}
+
+renderFrame(canvas, frameIndex) {
+    const imageData = canvas.getContext('2d').getImageData(0, 0, CONFIG.width, CONFIG.height);
+    const rgbBuffer = Buffer.from(imageData.data.buffer);
+
+    // Convert RGBA to RGB
+    const rgbData = Buffer.alloc(CONFIG.width * CONFIG.height * 3);
+    for (let i = 0, j = 0; i < rgbBuffer.length; i += 4, j += 3) {
+        rgbData[j] = rgbBuffer[i];     // R
+        rgbData[j + 1] = rgbBuffer[i + 1]; // G
+        rgbData[j + 2] = rgbBuffer[i + 2]; // B
+        // Skip alpha channel
+    }
+
+    // Stream to YouTube if process is running
+    if (this.streamingProcess && this.streamingProcess.stdin.writable) {
+        try {
+            this.streamingProcess.stdin.write(rgbData);
+        } catch (error) {
+            console.log("⚠️  YouTube stream connection lost");
+            this.streamingProcess = null;
+        }
+    }
+
+    return rgbData;
+}
+
+async createVideoAndStream(outputFilename = "ai_consciousness_480p.mp4", enableStreaming = true) {
+    console.log("🧠 Starting AI Stream of Consciousness Generation (480p Optimized)...");
+    console.log(`📝 Text log: ${CONFIG.textOutputFile}`);
+    
+    if (enableStreaming) {
+        const streamStarted = await this.startYouTubeStream();
+        if (streamStarted) {
+            console.log("🔴 YouTube Live stream active!");
+        } else {
+            console.log("📹 Continuing with local video only");
+        }
+    }
+
+    // Pre-generate QA sequence
+    console.log("🤖 Pre-generating AI conversation...");
+    const qaSequence = await this.generateQASequence();
+    
+    const displayLines = [];
+    let totalFrames = 0;
+    const maxFrames = CONFIG.durationSeconds * CONFIG.fps;
+    let qaIndex = 0;
+
+    try {
+        while (totalFrames < maxFrames && qaIndex < qaSequence.length) {
+            const currentQA = qaSequence[qaIndex];
+
+            // Type out Question
+            const questionText = `> ${currentQA.question}`;
+            const questionLines = this.wrapText(questionText);
+            
+            for (const line of questionLines) {
+                if (totalFrames >= maxFrames) break;
+                
+                let lineBuffer = "";
+                for (let charIdx = 0; charIdx < line.length; charIdx++) {
+                    lineBuffer += line[charIdx];
+                    const frame = this.createOptimizedCRTFrame(
+                        [...displayLines, lineBuffer],
+                        [charIdx + 1, displayLines.length],
+                        true
+                    );
+                    
+                    const charFrames = Math.max(1, Math.floor(CONFIG.charDelay * CONFIG.fps));
+                    for (let f = 0; f < charFrames; f++) {
+                        if (totalFrames >= maxFrames) break;
+                        this.renderFrame(frame, totalFrames);
+                        totalFrames++;
+                    }
+                }
+                displayLines.push(line);
+            }
+
+            // Show "Thinking..." during processing pause
+            const thinkingFrames = Math.floor(CONFIG.thinkingPause * CONFIG.fps);
+            for (let frameIdx = 0; frameIdx < thinkingFrames; frameIdx++) {
+                if (totalFrames >= maxFrames) break;
+                
+                const showThinking = frameIdx > (CONFIG.showThinkingAfter * CONFIG.fps);
+                const cursorBlink = Math.floor(frameIdx / (CONFIG.cursorBlinkRate * CONFIG.fps)) % 2 === 0;
+                
+                const pauseFrame = this.createOptimizedCRTFrame(
+                    displayLines,
+                    [0, displayLines.length],
+                    cursorBlink,
+                    showThinking
+                );
+                this.renderFrame(pauseFrame, totalFrames);
+                totalFrames++;
+            }
+
+            // Type out Answer
+            const answerLines = this.wrapText(currentQA.answer);
+            for (const line of answerLines) {
+                if (totalFrames >= maxFrames) break;
+                
+                let lineBuffer = "";
+                for (let charIdx = 0; charIdx < line.length; charIdx++) {
+                    lineBuffer += line[charIdx];
+                    const frame = this.createOptimizedCRTFrame(
+                        [...displayLines, lineBuffer],
+                        [charIdx + 1, displayLines.length],
+                        true
+                    );
+                    
+                    const charFrames = Math.max(1, Math.floor(CONFIG.charDelay * CONFIG.fps));
+                    for (let f = 0; f < charFrames; f++) {
+                        if (totalFrames >= maxFrames) break;
+                        this.renderFrame(frame, totalFrames);
+                        totalFrames++;
+                    }
+                }
+                displayLines.push(line);
+            }
+
+            // Add spacing and manage display buffer
+            displayLines.push("");
+            if (displayLines.length > 25) {
+                displayLines.splice(0, displayLines.length - 20);
+            }
+            
+            console.log(`✅ Completed cycle ${currentQA.cycle + 1}, frames: ${totalFrames}`);
+            qaIndex++;
+        }
+
+        // Fill remaining time with thinking indicator if needed
+        while (totalFrames < maxFrames) {
+            const thinkingFrame = this.createOptimizedCRTFrame(displayLines, null, false, true);
+            this.renderFrame(thinkingFrame, totalFrames);
+            totalFrames++;
+        }
+
+    } catch (error) {
+        console.error(`\n❌ Error during generation: ${error.message}`);
+    } finally {
+        if (this.streamingProcess) {
+            this.stopYouTubeStream();
+        }
+    }
+
+    console.log(`\n🎬 Stream completed with ${totalFrames} frames!`);
+    console.log(`📄 Text log saved as: ${CONFIG.textOutputFile}`);
+    
+    if (enableStreaming) {
+        console.log("📺 YouTube Live stream completed!");
+    }
+    
+    return outputFilename;
+}
+```
+
+}
+
+// Utility functions
+function createInterface() {
+return readline.createInterface({
+input: process.stdin,
+output: process.stdout
+});
+}
+
+function question(rl, query) {
+return new Promise(resolve => {
+rl.question(query, resolve);
+});
+}
+
+// Main function
+async function main() {
+console.log(“🧠 AI Stream of Consciousness Generator (Node.js)”);
+console.log(“🖥️  Authentic 286-era Green Phosphor Monitor Simulation”);
+console.log(“🔴 YouTube Live Streaming + Text Logging”);
+console.log(”=” .repeat(70));
+console.log(“✨ Using free LLM7.io service - no API key required!”);
+console.log();
+
+```
+const rl = createInterface();
+
+try {
+    // Check dependencies
+    console.log("📦 Checking dependencies...");
+    try {
+        require('canvas');
+        require('axios');
+        console.log("✅ All dependencies found!");
+    } catch (error) {
+        console.log("❌ Missing dependencies. Please install:");
+        console.log("npm install canvas axios");
+        process.exit(1);
+    }
+
+    // Streaming configuration
+    const enableStreamingResponse = await question(rl, "Enable YouTube Live streaming? (y/n): ");
+    const enableStreaming = enableStreamingResponse.toLowerCase() === 'y';
+    
+    if (enableStreaming) {
+        const customKeyResponse = await question(rl, `Use custom stream key? Current: ${CONFIG.youtubeStreamKey} (y/n): `);
+        if (customKeyResponse.toLowerCase() === 'y') {
+            const streamKey = await question(rl, "Enter your YouTube stream key: ");
+            if (streamKey.trim()) {
+                CONFIG.youtubeStreamKey = streamKey.trim();
+            }
+        }
+    }
+
+    // Configuration summary
+    console.log("\n🎛️  Configuration:");
+    console.log(`- Duration: ${CONFIG.durationSeconds / 60} minutes`);
+    console.log(`- Q&A Cycles: ${CONFIG.maxQACycles}`);
+    console.log(`- Resolution: ${CONFIG.width}x${CONFIG.height} @ ${CONFIG.fps}fps`);
+    console.log("- Style: Authentic 286-era green phosphor terminal");
+    console.log("- AI Model: LLM7.io GPT-3.5-turbo");
+    console.log(`- Text Log: ${CONFIG.textOutputFile}`);
+    
+    if (enableStreaming) {
+        console.log("- YouTube Stream: ENABLED");
+        console.log(`- Stream Key: ${CONFIG.youtubeStreamKey}`);
+    } else {
+        console.log("- YouTube Stream: DISABLED");
+    }
+
+    const generator = new AIStreamGenerator();
+    
+    const outputFile = await generator.createVideoAndStream(
+        "ai_consciousness_retro.mp4",
+        enableStreaming
+    );
+
+    console.log("\n✅ Generation complete!");
+    console.log("🧠 Your AI consciousness stream is ready!");
+    console.log("🖥️  Authentic retro terminal aesthetic achieved!");
+
+} catch (error) {
+    console.error(`\n❌ An error occurred: ${error.message}`);
+    console.log("💡 Try running again - the API might be temporarily busy.");
+} finally {
+    rl.close();
+}
+```
+
+}
+
+// Package.json dependencies note
+console.log(`
+📋 Required package.json dependencies:
+{
+“dependencies”: {
+“canvas”: “^2.11.2”,
+“axios”: “^1.6.0”
+}
+}
+
+Install with: npm install canvas axios
+Make sure you have Cairo and other canvas dependencies installed on your system.
+`);
+
+if (require.main === module) {
+main();
+}
+
+module.exports = { AIStreamGenerator, CONFIG };
