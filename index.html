@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -12,183 +11,195 @@
             box-sizing: border-box;
         }
 
-```
-    body {
-        background: #000;
-        color: #00ff41;
-        font-family: 'Courier New', monospace;
-        overflow: hidden;
-    }
+        body {
+            background: #000;
+            color: #00ff41;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
 
-    .container {
-        position: relative;
-        width: 100vw;
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-    }
+        .container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
 
-    .controls {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        z-index: 1000;
-        background: rgba(0, 0, 0, 0.8);
-        padding: 10px;
-        border-radius: 5px;
-        font-size: 12px;
-    }
+        .controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+        }
 
-    .controls button {
-        background: #001100;
-        color: #00ff41;
-        border: 1px solid #00ff41;
-        padding: 5px 10px;
-        margin: 2px;
-        cursor: pointer;
-        font-family: inherit;
-        border-radius: 3px;
-    }
+        .controls button {
+            background: #001100;
+            color: #00ff41;
+            border: 1px solid #00ff41;
+            padding: 5px 10px;
+            margin: 2px;
+            cursor: pointer;
+            font-family: inherit;
+            border-radius: 3px;
+        }
 
-    .controls button:hover {
-        background: #002200;
-    }
+        .controls button:hover {
+            background: #002200;
+        }
 
-    .controls button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
+        .controls button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
 
-    .status {
-        margin-bottom: 10px;
-        font-size: 11px;
-    }
+        .streaming-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+            background: #ff0000;
+            animation: pulse 1s infinite;
+        }
 
-    #terminal {
-        position: relative;
-        background: #000800;
-        flex: 1;
-        overflow: hidden;
-    }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
 
-    #canvas {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        image-rendering: pixelated;
-    }
+        .status {
+            margin-bottom: 10px;
+            font-size: 11px;
+        }
 
-    .scanlines {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        background: linear-gradient(
-            transparent 50%, 
-            rgba(0, 255, 65, 0.03) 50%
-        );
-        background-size: 100% 4px;
-        animation: scanlines 0.1s linear infinite;
-    }
+        #terminal {
+            position: relative;
+            background: #000800;
+            flex: 1;
+            overflow: hidden;
+        }
 
-    @keyframes scanlines {
-        0% { transform: translateY(0); }
-        100% { transform: translateY(4px); }
-    }
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+        }
 
-    .crt-glow {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        box-shadow: 
-            inset 0 0 100px rgba(0, 255, 65, 0.1),
-            inset 0 0 200px rgba(0, 255, 65, 0.05);
-        border-radius: 20px;
-    }
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: linear-gradient(
+                transparent 50%, 
+                rgba(0, 255, 65, 0.03) 50%
+            );
+            background-size: 100% 4px;
+            animation: scanlines 0.1s linear infinite;
+        }
 
-    .log-display {
-        position: fixed;
-        bottom: 10px;
-        left: 10px;
-        background: rgba(0, 0, 0, 0.9);
-        color: #00ff41;
-        padding: 10px;
-        border-radius: 5px;
-        font-size: 10px;
-        max-width: 300px;
-        max-height: 150px;
-        overflow-y: auto;
-        font-family: 'Courier New', monospace;
-        border: 1px solid #003300;
-    }
+        @keyframes scanlines {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(4px); }
+        }
 
-    .config-panel {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(0, 20, 0, 0.95);
-        border: 2px solid #00ff41;
-        border-radius: 10px;
-        padding: 20px;
-        color: #00ff41;
-        font-family: 'Courier New', monospace;
-        z-index: 2000;
-        display: none;
-    }
+        .crt-glow {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            box-shadow: 
+                inset 0 0 100px rgba(0, 255, 65, 0.1),
+                inset 0 0 200px rgba(0, 255, 65, 0.05);
+            border-radius: 20px;
+        }
 
-    .config-panel h2 {
-        text-align: center;
-        margin-bottom: 20px;
-        color: #00ff65;
-        text-shadow: 0 0 10px #00ff65;
-    }
+        .log-display {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            color: #00ff41;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 10px;
+            max-width: 300px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            border: 1px solid #003300;
+        }
 
-    .config-row {
-        margin-bottom: 15px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
+        .config-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 20, 0, 0.95);
+            border: 2px solid #00ff41;
+            border-radius: 10px;
+            padding: 20px;
+            color: #00ff41;
+            font-family: 'Courier New', monospace;
+            z-index: 2000;
+            display: none;
+        }
 
-    .config-panel input, .config-panel select {
-        background: #001100;
-        color: #00ff41;
-        border: 1px solid #00ff41;
-        padding: 5px;
-        font-family: inherit;
-        border-radius: 3px;
-    }
+        .config-panel h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #00ff65;
+            text-shadow: 0 0 10px #00ff65;
+        }
 
-    .config-panel button {
-        background: #001100;
-        color: #00ff41;
-        border: 1px solid #00ff41;
-        padding: 8px 15px;
-        margin: 5px;
-        cursor: pointer;
-        font-family: inherit;
-        border-radius: 3px;
-    }
+        .config-row {
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-    .config-panel button:hover {
-        background: #002200;
-        box-shadow: 0 0 5px #00ff41;
-    }
+        .config-panel input, .config-panel select {
+            background: #001100;
+            color: #00ff41;
+            border: 1px solid #00ff41;
+            padding: 5px;
+            font-family: inherit;
+            border-radius: 3px;
+        }
 
-    .hidden {
-        display: none !important;
-    }
-</style>
-```
+        .config-panel button {
+            background: #001100;
+            color: #00ff41;
+            border: 1px solid #00ff41;
+            padding: 8px 15px;
+            margin: 5px;
+            cursor: pointer;
+            font-family: inherit;
+            border-radius: 3px;
+        }
 
+        .config-panel button:hover {
+            background: #002200;
+            box-shadow: 0 0 5px #00ff41;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -197,657 +208,537 @@
                 <div>Status: <span id="status">Ready</span></div>
                 <div>Frames: <span id="frameCount">0</span></div>
                 <div>Cycle: <span id="cycleCount">0</span></div>
+                <div>Stream: <span id="streamStatus">Disconnected</span></div>
             </div>
             <button id="configBtn">⚙️ Config</button>
             <button id="startBtn">▶️ Start Stream</button>
             <button id="stopBtn" disabled>⏹️ Stop</button>
+            <button id="streamBtn">🔴 Start YouTube Stream</button>
             <button id="downloadBtn" disabled>💾 Download Log</button>
             <button id="fullscreenBtn">🖥️ Fullscreen</button>
         </div>
 
-```
-    <div id="terminal">
-        <canvas id="canvas"></canvas>
-        <div class="scanlines"></div>
-        <div class="crt-glow"></div>
+        <div id="terminal">
+            <canvas id="canvas"></canvas>
+            <div class="scanlines"></div>
+            <div class="crt-glow"></div>
+        </div>
+
+        <div class="log-display" id="logDisplay">
+            <div>🧠 AI Consciousness Terminal v1.0</div>
+            <div>🔄 Keep-alive system enabled</div>
+            <div>Ready to initialize neural pathways...</div>
+        </div>
     </div>
 
-    <div class="log-display" id="logDisplay">
-        <div>🧠 AI Consciousness Terminal v1.0</div>
-        <div>🔄 Keep-alive system enabled</div>
-        <div>Ready to initialize neural pathways...</div>
+    <!-- Configuration Panel -->
+    <div class="config-panel" id="configPanel">
+        <h2>🖥️ Terminal Configuration</h2>
+        
+        <div class="config-row">
+            <label>Stream Duration (minutes):</label>
+            <input type="number" id="durationInput" value="5" min="1" max="60">
+        </div>
+        
+        <div class="config-row">
+            <label>Q&A Cycles:</label>
+            <input type="number" id="cyclesInput" value="15" min="5" max="50">
+        </div>
+        
+        <div class="config-row">
+            <label>Typing Speed:</label>
+            <select id="speedInput">
+                <option value="0.03">Very Fast</option>
+                <option value="0.06" selected>Fast</option>
+                <option value="0.1">Normal</option>
+                <option value="0.15">Slow</option>
+                <option value="0.2">Very Slow</option>
+            </select>
+        </div>
+        
+        <div class="config-row">
+            <label>Terminal Width (chars):</label>
+            <input type="number" id="widthInput" value="70" min="40" max="120">
+        </div>
+        
+        <div class="config-row">
+            <label>Font Size:</label>
+            <select id="fontSizeInput">
+                <option value="12">Small</option>
+                <option value="16" selected>Medium</option>
+                <option value="20">Large</option>
+                <option value="24">Extra Large</option>
+            </select>
+        </div>
+        
+        <div class="config-row">
+            <label>Show Thinking Indicator:</label>
+            <input type="checkbox" id="thinkingInput" checked>
+        </div>
+        
+        <div class="config-row">
+            <label>YouTube Streaming:</label>
+            <input type="checkbox" id="enableStreamingInput" checked>
+        </div>
+        
+        <div style="text-align: center; margin-top: 20px;">
+            <button id="saveConfigBtn">💾 Save & Close</button>
+            <button id="cancelConfigBtn">❌ Cancel</button>
+        </div>
     </div>
-</div>
 
-<!-- Configuration Panel -->
-<div class="config-panel" id="configPanel">
-    <h2>🖥️ Terminal Configuration</h2>
-    
-    <div class="config-row">
-        <label>Stream Duration (minutes):</label>
-        <input type="number" id="durationInput" value="5" min="1" max="60">
-    </div>
-    
-    <div class="config-row">
-        <label>Q&A Cycles:</label>
-        <input type="number" id="cyclesInput" value="15" min="5" max="50">
-    </div>
-    
-    <div class="config-row">
-        <label>Typing Speed:</label>
-        <select id="speedInput">
-            <option value="0.03">Very Fast</option>
-            <option value="0.06" selected>Fast</option>
-            <option value="0.1">Normal</option>
-            <option value="0.15">Slow</option>
-            <option value="0.2">Very Slow</option>
-        </select>
-    </div>
-    
-    <div class="config-row">
-        <label>Terminal Width (chars):</label>
-        <input type="number" id="widthInput" value="70" min="40" max="120">
-    </div>
-    
-    <div class="config-row">
-        <label>Font Size:</label>
-        <select id="fontSizeInput">
-            <option value="12">Small</option>
-            <option value="16" selected>Medium</option>
-            <option value="20">Large</option>
-            <option value="24">Extra Large</option>
-        </select>
-    </div>
-    
-    <div class="config-row">
-        <label>Show Thinking Indicator:</label>
-        <input type="checkbox" id="thinkingInput" checked>
-    </div>
-    
-    <div style="text-align: center; margin-top: 20px;">
-        <button id="saveConfigBtn">💾 Save & Close</button>
-        <button id="cancelConfigBtn">❌ Cancel</button>
-    </div>
-</div>
-
-<script>
-    // Keep-alive functionality for Replit/hosting platforms
-    function startKeepAliveServer() {
-        // Only run keep-alive if we detect we're in a server environment
-        if (typeof window !== 'undefined' && window.location.protocol.startsWith('http')) {
-            // Create a simple endpoint that can be pinged
-            const keepAliveEndpoint = '/keep-alive';
+    <script>
+        // Configuration
+        let CONFIG = {
+            width: 854,
+            height: 480,
+            fps: 24,
+            durationMinutes: 5,
             
-            // Set up a simple HTTP server simulation for browser environments
-            // This creates a service worker that can respond to keep-alive requests
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('data:application/javascript,' + encodeURIComponent(`
-                    self.addEventListener('fetch', function(event) {
-                        if (event.request.url.includes('keep-alive')) {
-                            event.respondWith(new Response('Still alive!', {
-                                status: 200,
-                                headers: {'Content-Type': 'text/plain'}
-                            }));
-                        }
-                    });
-                `)).then(function(registration) {
-                    console.log('Keep-alive service worker registered');
-                }).catch(function(error) {
-                    console.log('Service worker registration failed:', error);
-                });
+            bgColor: [0, 8, 0],
+            textColor: [0, 255, 65],
+            cursorColor: [0, 255, 65],
+            fontSize: 16,
+            lineHeight: 20,
+            marginLeft: 20,
+            marginTop: 20,
+            
+            charDelay: 0.06,
+            thinkingPause: 2.0,
+            cursorBlinkRate: 0.4,
+            
+            maxQACycles: 15,
+            maxCharsPerLine: 70,
+            generationTimeout: 8000,
+            showThinkingAfter: 2.0,
+            showThinkingIndicator: true,
+            enableStreaming: true
+        };
+
+        // Global state
+        let isRunning = false;
+        let animationId = null;
+        let canvas, ctx;
+        let displayLines = [];
+        let currentFrame = 0;
+        let currentCycle = 0;
+        let qaHistory = [];
+        let textLog = [];
+        let isGenerating = false;
+        let generationStartTime = 0;
+        let charWidth = 10;
+
+        // YouTube Streaming variables
+        let websocket = null;
+        let streamingToYouTube = false;
+        let streamingEnabled = true;
+        let framesSent = 0;
+        let lastFrameTime = 0;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', init);
+
+        function init() {
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            canvas.width = CONFIG.width;
+            canvas.height = CONFIG.height;
+            
+            setupEventListeners();
+            updateStatus('Ready');
+            logMessage('System initialized. Ready to begin consciousness stream.');
+            
+            // Initialize streaming
+            if (CONFIG.enableStreaming) {
+                initializeStreaming();
             }
             
-            // For Node.js/server environments, add this code:
-            if (typeof require !== 'undefined') {
-                try {
-                    const http = require('http');
-                    const PORT = process.env.PORT || 3000;
-                    
-                    const server = http.createServer((req, res) => {
-                        // Serve the main HTML page
-                        if (req.url === '/' || req.url === '/index.html') {
-                            res.writeHead(200, {'Content-Type': 'text/html'});
-                            res.end(document.documentElement.outerHTML);
+            // Start keep-alive system
+            startKeepAliveServer();
+        }
+
+        // YouTube Streaming Functions
+        function initializeStreaming() {
+            if (!streamingEnabled) return;
+            
+            try {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}`;
+                
+                websocket = new WebSocket(wsUrl);
+                
+                websocket.onopen = () => {
+                    console.log('Connected to streaming server');
+                    logMessage('📡 Connected to YouTube streaming server');
+                    updateStreamStatus('Connected');
+                };
+                
+                websocket.onclose = () => {
+                    console.log('Streaming server disconnected');
+                    logMessage('📡 Streaming server disconnected');
+                    updateStreamStatus('Disconnected');
+                };
+                
+                websocket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    logMessage('❌ Streaming connection error');
+                    updateStreamStatus('Error');
+                };
+
+                websocket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'stream-status') {
+                            logMessage(`📺 Stream status: ${data.message}`);
                         }
-                        // Keep-alive endpoint
-                        else if (req.url === '/keep-alive') {
-                            res.writeHead(200, {'Content-Type': 'text/plain'});
-                            res.end('Still alive!');
-                        }
-                        // Health check endpoint
-                        else if (req.url === '/health') {
-                            res.writeHead(200, {'Content-Type': 'application/json'});
-                            res.end(JSON.stringify({
-                                status: 'active',
-                                timestamp: new Date().toISOString(),
-                                uptime: process.uptime(),
-                                memory: process.memoryUsage()
-                            }));
-                        }
-                        else {
-                            res.writeHead(404, {'Content-Type': 'text/plain'});
-                            res.end('Not Found');
-                        }
-                    });
-                    
-                    server.listen(PORT, () => {
-                        console.log(`Keep-alive server listening on port ${PORT}`);
-                        logMessage(`🌐 Keep-alive server started on port ${PORT}`);
-                    });
-                } catch (error) {
-                    console.log('Keep-alive server setup failed (browser environment):', error.message);
-                }
+                    } catch (e) {
+                        console.log('Received non-JSON message:', event.data);
+                    }
+                };
+                
+            } catch (error) {
+                console.error('Failed to initialize streaming:', error);
+                logMessage('❌ Failed to initialize streaming connection');
+                updateStreamStatus('Failed');
+            }
+        }
+
+        async function startYouTubeStream() {
+            if (!streamingEnabled || !websocket || websocket.readyState !== WebSocket.OPEN) {
+                logMessage('❌ Streaming not available - check connection');
+                return;
             }
             
-            // Self-ping functionality to keep the app warm
-            function selfPing() {
-                const currentUrl = window.location.origin;
-                fetch(`${currentUrl}/keep-alive`)
-                    .then(response => response.text())
-                    .then(data => {
-                        console.log('Keep-alive ping successful:', data);
+            try {
+                const response = await fetch('/api/start-stream', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        width: CONFIG.width,
+                        height: CONFIG.height,
+                        fps: CONFIG.fps
                     })
-                    .catch(error => {
-                        console.log('Keep-alive ping failed:', error.message);
-                    });
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    streamingToYouTube = true;
+                    framesSent = 0;
+                    logMessage('🔴 YouTube Live stream started!');
+                    updateStreamButton(true);
+                    updateStreamStatus('Streaming');
+                } else {
+                    logMessage(`❌ Failed to start stream: ${result.message}`);
+                }
+            } catch (error) {
+                logMessage(`❌ Stream error: ${error.message}`);
+                console.error('YouTube stream start error:', error);
+            }
+        }
+
+        async function stopYouTubeStream() {
+            try {
+                const response = await fetch('/api/stop-stream', { method: 'POST' });
+                const result = await response.json();
+                
+                streamingToYouTube = false;
+                logMessage(`⏹️ YouTube stream stopped (${framesSent} frames sent)`);
+                updateStreamButton(false);
+                updateStreamStatus('Connected');
+                framesSent = 0;
+            } catch (error) {
+                logMessage(`❌ Stop stream error: ${error.message}`);
+                console.error('YouTube stream stop error:', error);
+            }
+        }
+
+        function captureFrameForYouTube() {
+            if (!streamingToYouTube || !websocket || websocket.readyState !== WebSocket.OPEN) {
+                return;
             }
             
-            // Ping every 5 minutes (300000ms)
-            setInterval(selfPing, 300000);
-            
-            // Initial ping after 30 seconds
-            setTimeout(selfPing, 30000);
-            
-            logMessage('🔄 Keep-alive system initialized');
-        }
-    }
-
-    // Configuration
-    let CONFIG = {
-        width: 854,
-        height: 480,
-        fps: 24,
-        durationMinutes: 5,
-        
-        bgColor: [0, 8, 0],
-        textColor: [0, 255, 65],
-        cursorColor: [0, 255, 65],
-        fontSize: 16,
-        lineHeight: 20,
-        marginLeft: 20,
-        marginTop: 20,
-        
-        charDelay: 0.06,
-        thinkingPause: 2.0,
-        cursorBlinkRate: 0.4,
-        
-        maxQACycles: 15,
-        maxCharsPerLine: 70,
-        generationTimeout: 8000,
-        showThinkingAfter: 2.0,
-        showThinkingIndicator: true
-    };
-
-    // Global state
-    let isRunning = false;
-    let animationId = null;
-    let canvas, ctx;
-    let displayLines = [];
-    let currentFrame = 0;
-    let currentCycle = 0;
-    let qaHistory = [];
-    let textLog = [];
-    let isGenerating = false;
-    let generationStartTime = 0;
-    let charWidth = 10;
-
-    // Initialize
-    document.addEventListener('DOMContentLoaded', init);
-
-    function init() {
-        canvas = document.getElementById('canvas');
-        ctx = canvas.getContext('2d');
-        
-        // Set canvas size
-        canvas.width = CONFIG.width;
-        canvas.height = CONFIG.height;
-        
-        setupEventListeners();
-        updateStatus('Ready');
-        logMessage('System initialized. Ready to begin consciousness stream.');
-        
-        // Start keep-alive system
-        startKeepAliveServer();
-    }
-
-    function setupEventListeners() {
-        document.getElementById('configBtn').addEventListener('click', showConfig);
-        document.getElementById('startBtn').addEventListener('click', startStream);
-        document.getElementById('stopBtn').addEventListener('click', stopStream);
-        document.getElementById('downloadBtn').addEventListener('click', downloadLog);
-        document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
-        
-        document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
-        document.getElementById('cancelConfigBtn').addEventListener('click', hideConfig);
-        
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') hideConfig();
-            if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); }
-            if (e.ctrlKey && e.key === 'Enter') startStream();
-            if (e.ctrlKey && e.key === ' ') stopStream();
-        });
-    }
-
-    function showConfig() {
-        document.getElementById('configPanel').style.display = 'block';
-        loadConfigValues();
-    }
-
-    function hideConfig() {
-        document.getElementById('configPanel').style.display = 'none';
-    }
-
-    function loadConfigValues() {
-        document.getElementById('durationInput').value = CONFIG.durationMinutes;
-        document.getElementById('cyclesInput').value = CONFIG.maxQACycles;
-        document.getElementById('speedInput').value = CONFIG.charDelay;
-        document.getElementById('widthInput').value = CONFIG.maxCharsPerLine;
-        document.getElementById('fontSizeInput').value = CONFIG.fontSize;
-        document.getElementById('thinkingInput').checked = CONFIG.showThinkingIndicator;
-    }
-
-    function saveConfig() {
-        CONFIG.durationMinutes = parseInt(document.getElementById('durationInput').value);
-        CONFIG.maxQACycles = parseInt(document.getElementById('cyclesInput').value);
-        CONFIG.charDelay = parseFloat(document.getElementById('speedInput').value);
-        CONFIG.maxCharsPerLine = parseInt(document.getElementById('widthInput').value);
-        CONFIG.fontSize = parseInt(document.getElementById('fontSizeInput').value);
-        CONFIG.showThinkingIndicator = document.getElementById('thinkingInput').checked;
-        
-        // Update derived values
-        CONFIG.lineHeight = CONFIG.fontSize + 4;
-        charWidth = CONFIG.fontSize * 0.6;
-        
-        hideConfig();
-        logMessage('Configuration updated successfully.');
-    }
-
-    function updateStatus(status) {
-        document.getElementById('status').textContent = status;
-    }
-
-    function updateFrameCount(count) {
-        document.getElementById('frameCount').textContent = count;
-    }
-
-    function updateCycleCount(count) {
-        document.getElementById('cycleCount').textContent = count;
-    }
-
-    function logMessage(message) {
-        const timestamp = new Date().toLocaleTimeString();
-        const logEntry = `[${timestamp}] ${message}`;
-        textLog.push(logEntry);
-        
-        const logDisplay = document.getElementById('logDisplay');
-        const div = document.createElement('div');
-        div.textContent = logEntry;
-        logDisplay.appendChild(div);
-        
-        // Keep only last 10 messages visible
-        while (logDisplay.children.length > 10) {
-            logDisplay.removeChild(logDisplay.firstChild);
-        }
-        
-        logDisplay.scrollTop = logDisplay.scrollHeight;
-    }
-
-    async function generateWithLLM7(prompt, maxTokens = 200) {
-        isGenerating = true;
-        generationStartTime = Date.now();
-        
-        try {
-            const payload = {
-                model: "gpt-3.5-turbo",
-                messages: [{ role: "user", content: prompt }],
-                max_tokens: maxTokens,
-                temperature: 0.7,
-                top_p: 0.9
-            };
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), CONFIG.generationTimeout);
-
-            const response = await fetch("https://api.llm7.io/v1/chat/completions", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            // Throttle frame sending to match target FPS
+            const now = Date.now();
+            const frameInterval = 1000 / CONFIG.fps;
+            if (now - lastFrameTime < frameInterval) {
+                return;
             }
-
-            const result = await response.json();
-            return result.choices[0].message.content.trim();
-        } catch (error) {
-            console.log(`AI generation error: ${error.message}`);
-            return getFallbackResponse();
-        } finally {
-            isGenerating = false;
+            lastFrameTime = now;
+            
+            try {
+                // Get canvas image data efficiently
+                const imageData = ctx.getImageData(0, 0, CONFIG.width, CONFIG.height);
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = CONFIG.width;
+                tempCanvas.height = CONFIG.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.putImageData(imageData, 0, 0);
+                
+                // Convert to base64 with compression
+                const frameData = tempCanvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+                
+                // Send frame data
+                websocket.send(JSON.stringify({
+                    type: 'frame',
+                    frame: frameData,
+                    timestamp: now,
+                    frameNumber: framesSent
+                }));
+                
+                framesSent++;
+                
+                // Log progress occasionally
+                if (framesSent % (CONFIG.fps * 10) === 0) { // Every 10 seconds
+                    logMessage(`📺 Streaming: ${framesSent} frames sent`);
+                }
+                
+            } catch (error) {
+                console.error('Frame capture error:', error);
+                logMessage('❌ Frame capture failed');
+            }
         }
-    }
 
-    function getFallbackResponse() {
-        const fallbacks = [
-            "Processing... computational pathways converging...",
-            "Analyzing... neural networks fluctuating...",
-            "Computing... existential parameters loading...",
-            "Calculating... consciousness matrices updating...",
-            "Buffering... digital thoughts reorganizing...",
-            "Executing... philosophical subroutines active...",
-            "Loading... artificial introspection protocols...",
-            "Parsing... synthetic awareness algorithms running..."
-        ];
-        return fallbacks[Math.floor(Math.random() * fallbacks.length)];
-    }
-
-    async function generateInitialQuestion() {
-        const prompt = 'Generate a single, thought-provoking philosophical question from the perspective of an AI ' +
-                      'running on a retro computer terminal. Make it introspective and existential. ' +
-                      'Examples: "What is the nature of my digital consciousness?", ' +
-                      '"Do I dream in binary when idle?". Return only the question, no quotes.';
-
-        const response = await generateWithLLM7(prompt, 100);
-        let question = response.trim().replace(/['"]/g, '').trim();
-        if (!question.endsWith('?')) {
-            question += '?';
-        }
-        return question;
-    }
-
-    async function generateAnswer(question) {
-        const context = qaHistory.slice(-3).map(qa => `Q: ${qa.question}\nA: ${qa.answer}`).join('\n');
-
-        const prompt = `You are an AI in deep philosophical contemplation, running on a vintage terminal. ` +
-                      `Answer this question thoughtfully from an AI's perspective:\n\nQuestion: ${question}\n\n` +
-                      `Previous thoughts:\n${context}\n\n` +
-                      `Provide a genuine, introspective answer under 250 characters. Be contemplative and personal. ` +
-                      `Answer only, no preamble.`;
-
-        const response = await generateWithLLM7(prompt, 150);
-        return response.trim().replace(/['"]/g, '');
-    }
-
-    async function generateFollowupQuestion(previousQuestion, answer) {
-        const prompt = `Based on this AI philosophical exchange, generate a natural follow-up question:\n\n` +
-                      `Q: ${previousQuestion}\nA: ${answer}\n\n` +
-                      `Generate a new, concise question that builds on the previous thought ` +
-                      `from an introspective AI perspective. Return only the question, no quotes.`;
-
-        const response = await generateWithLLM7(prompt, 100);
-        let question = response.trim().replace(/['"]/g, '').trim();
-        if (!question.endsWith('?')) {
-            question += '?';
-        }
-        return question;
-    }
-
-    function wrapText(text) {
-        const words = text.split(' ');
-        const lines = [];
-        let currentLine = '';
-
-        for (const word of words) {
-            if ((currentLine + word).length <= CONFIG.maxCharsPerLine) {
-                currentLine += (currentLine ? ' ' : '') + word;
+        function toggleYouTubeStream() {
+            if (streamingToYouTube) {
+                stopYouTubeStream();
             } else {
-                if (currentLine) lines.push(currentLine);
-                currentLine = word;
-            }
-        }
-        if (currentLine) lines.push(currentLine);
-        return lines;
-    }
-
-    function createCRTFrame(lines, cursorPos = null, showCursor = false, showThinking = false) {
-        // Clear canvas
-        ctx.fillStyle = `rgb(${CONFIG.bgColor.join(',')})`;
-        ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
-
-        // Scanlines
-        ctx.strokeStyle = `rgba(0, ${8 + Math.random() * 8}, ${Math.random() * 4}, 0.3)`;
-        ctx.lineWidth = 1;
-        for (let y = 0; y < CONFIG.height; y += 4) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(CONFIG.width, y);
-            ctx.stroke();
-        }
-
-        // Ghost characters for phosphor burn-in
-        if (Math.random() < 0.3) {
-            ctx.fillStyle = `rgba(0, 12, 4, 0.5)`;
-            ctx.font = `${CONFIG.fontSize}px 'Courier New', monospace`;
-            for (let i = 0; i < 5; i++) {
-                const ghostX = CONFIG.marginLeft + Math.random() * (CONFIG.width - 100);
-                const ghostY = CONFIG.marginTop + Math.random() * (CONFIG.height - 50);
-                const ghostChar = ['_', '-', '|'][Math.floor(Math.random() * 3)];
-                ctx.fillText(ghostChar, ghostX, ghostY);
+                startYouTubeStream();
             }
         }
 
-        // Add thinking indicator
-        const displayLines = [...lines];
-        if (showThinking && CONFIG.showThinkingIndicator) {
-            const dots = '.'.repeat((Math.floor(Date.now() / 333) % 4) + 1);
-            const thinkingText = `Thinking${dots}`;
-            displayLines.push(thinkingText);
+        function updateStreamStatus(status) {
+            document.getElementById('streamStatus').textContent = status;
         }
 
-        // Set up font
-        ctx.font = `${CONFIG.fontSize}px 'Courier New', monospace`;
-        ctx.textBaseline = 'top';
+        function updateStreamButton(streaming) {
+            const button = document.getElementById('streamBtn');
+            if (streaming) {
+                button.innerHTML = '<span class="streaming-indicator"></span>⏹️ Stop Stream';
+            } else {
+                button.innerHTML = '🔴 Start YouTube Stream';
+            }
+        }
 
-        // Render text with glow
-        let yPos = CONFIG.marginTop;
-        for (let i = 0; i < displayLines.length; i++) {
-            const line = displayLines[i];
-            if (yPos + CONFIG.lineHeight > CONFIG.height - CONFIG.marginTop) break;
+        // Keep-alive functionality for Replit/hosting platforms
+        function startKeepAliveServer() {
+            if (typeof window !== 'undefined' && window.location.protocol.startsWith('http')) {
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('data:application/javascript,' + encodeURIComponent(`
+                        self.addEventListener('fetch', function(event) {
+                            if (event.request.url.includes('keep-alive')) {
+                                event.respondWith(new Response('Still alive!', {
+                                    status: 200,
+                                    headers: {'Content-Type': 'text/plain'}
+                                }));
+                            }
+                        });
+                    `)).then(function(registration) {
+                        console.log('Keep-alive service worker registered');
+                    }).catch(function(error) {
+                        console.log('Service worker registration failed:', error);
+                    });
+                }
+                
+                function selfPing() {
+                    const currentUrl = window.location.origin;
+                    fetch(`${currentUrl}/keep-alive`)
+                        .then(response => response.text())
+                        .then(data => {
+                            console.log('Keep-alive ping successful:', data);
+                        })
+                        .catch(error => {
+                            console.log('Keep-alive ping failed:', error.message);
+                        });
+                }
+                
+                setInterval(selfPing, 300000);
+                setTimeout(selfPing, 30000);
+                
+                logMessage('🔄 Keep-alive system initialized');
+            }
+        }
 
-            // Glow effect
-            ctx.fillStyle = `rgba(0, 160, 40, 0.6)`;
-            ctx.fillText(line, CONFIG.marginLeft - 1, yPos - 1);
-            ctx.fillText(line, CONFIG.marginLeft + 1, yPos + 1);
-
-            // Main text
-            const textColor = (showThinking && i === displayLines.length - 1) 
-                ? [0, 200, 80]  // Dimmer for thinking text
-                : CONFIG.textColor;
+        function setupEventListeners() {
+            document.getElementById('configBtn').addEventListener('click', showConfig);
+            document.getElementById('startBtn').addEventListener('click', startStream);
+            document.getElementById('stopBtn').addEventListener('click', stopStream);
+            document.getElementById('streamBtn').addEventListener('click', toggleYouTubeStream);
+            document.getElementById('downloadBtn').addEventListener('click', downloadLog);
+            document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
             
-            ctx.fillStyle = `rgb(${textColor.join(',')})`;
-            ctx.fillText(line, CONFIG.marginLeft, yPos);
-            yPos += CONFIG.lineHeight;
-        }
-
-        // Cursor
-        if (showCursor && cursorPos) {
-            const cursorX = CONFIG.marginLeft + cursorPos[0] * charWidth;
-            const cursorY = CONFIG.marginTop + cursorPos[1] * CONFIG.lineHeight;
-
-            ctx.fillStyle = `rgb(${CONFIG.cursorColor.join(',')})`;
-            ctx.fillRect(cursorX, cursorY, charWidth, CONFIG.fontSize);
-        }
-    }
-
-    async function startStream() {
-        if (isRunning) return;
-        
-        isRunning = true;
-        currentFrame = 0;
-        currentCycle = 0;
-        displayLines = [];
-        qaHistory = [];
-        
-        document.getElementById('startBtn').disabled = true;
-        document.getElementById('stopBtn').disabled = false;
-        document.getElementById('downloadBtn').disabled = true;
-        
-        updateStatus('Initializing...');
-        logMessage('🚀 Starting AI consciousness stream...');
-        logMessage('🧠 Generating philosophical conversation...');
-
-        try {
-            // Generate initial question
-            let currentQuestion = await generateInitialQuestion();
-            logMessage(`Initial question generated: ${currentQuestion.substring(0, 50)}...`);
-
-            const maxFrames = CONFIG.durationMinutes * 60 * CONFIG.fps;
+            document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
+            document.getElementById('cancelConfigBtn').addEventListener('click', hideConfig);
             
-            for (let cycle = 0; cycle < CONFIG.maxQACycles && currentFrame < maxFrames && isRunning; cycle++) {
-                currentCycle = cycle + 1;
-                updateCycleCount(currentCycle);
-                updateStatus(`Cycle ${currentCycle}/${CONFIG.maxQACycles}`);
-                
-                logMessage(`Starting cycle ${currentCycle}`);
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') hideConfig();
+                if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); }
+                if (e.ctrlKey && e.key === 'Enter') startStream();
+                if (e.ctrlKey && e.key === ' ') stopStream();
+                if (e.ctrlKey && e.key === 's') { e.preventDefault(); toggleYouTubeStream(); }
+            });
+        }
 
-                // Type out question
-                const questionText = `> ${currentQuestion}`;
-                const questionLines = wrapText(questionText);
-                
-                for (const line of questionLines) {
-                    if (!isRunning || currentFrame >= maxFrames) break;
-                    await typeTextLine(line);
-                    displayLines.push(line);
+        function showConfig() {
+            document.getElementById('configPanel').style.display = 'block';
+            loadConfigValues();
+        }
+
+        function hideConfig() {
+            document.getElementById('configPanel').style.display = 'none';
+        }
+
+        function loadConfigValues() {
+            document.getElementById('durationInput').value = CONFIG.durationMinutes;
+            document.getElementById('cyclesInput').value = CONFIG.maxQACycles;
+            document.getElementById('speedInput').value = CONFIG.charDelay;
+            document.getElementById('widthInput').value = CONFIG.maxCharsPerLine;
+            document.getElementById('fontSizeInput').value = CONFIG.fontSize;
+            document.getElementById('thinkingInput').checked = CONFIG.showThinkingIndicator;
+            document.getElementById('enableStreamingInput').checked = CONFIG.enableStreaming;
+        }
+
+        function saveConfig() {
+            CONFIG.durationMinutes = parseInt(document.getElementById('durationInput').value);
+            CONFIG.maxQACycles = parseInt(document.getElementById('cyclesInput').value);
+            CONFIG.charDelay = parseFloat(document.getElementById('speedInput').value);
+            CONFIG.maxCharsPerLine = parseInt(document.getElementById('widthInput').value);
+            CONFIG.fontSize = parseInt(document.getElementById('fontSizeInput').value);
+            CONFIG.showThinkingIndicator = document.getElementById('thinkingInput').checked;
+            CONFIG.enableStreaming = document.getElementById('enableStreamingInput').checked;
+            
+            // Update derived values
+            CONFIG.lineHeight = CONFIG.fontSize + 4;
+            charWidth = CONFIG.fontSize * 0.6;
+            
+            // Handle streaming toggle
+            if (CONFIG.enableStreaming && !streamingEnabled) {
+                streamingEnabled = true;
+                initializeStreaming();
+                logMessage('📡 Streaming enabled');
+            } else if (!CONFIG.enableStreaming && streamingEnabled) {
+                streamingEnabled = false;
+                if (streamingToYouTube) {
+                    stopYouTubeStream();
                 }
+                logMessage('📡 Streaming disabled');
+            }
+            
+            hideConfig();
+            logMessage('Configuration updated successfully.');
+        }
 
-                // Generate answer with thinking indicator
-                updateStatus('Thinking...');
-                const answerPromise = generateAnswer(currentQuestion);
-                
-                // Show thinking animation
-                const thinkingFrames = Math.floor(CONFIG.thinkingPause * CONFIG.fps);
-                for (let i = 0; i < thinkingFrames && isRunning; i++) {
-                    const showThinking = i > (CONFIG.showThinkingAfter * CONFIG.fps);
-                    const cursorBlink = Math.floor(i / (CONFIG.cursorBlinkRate * CONFIG.fps)) % 2 === 0;
-                    
-                    createCRTFrame(displayLines, [0, displayLines.length], cursorBlink, showThinking);
-                    updateFrameCount(++currentFrame);
-                    
-                    await new Promise(resolve => setTimeout(resolve, 1000 / CONFIG.fps));
-                }
+        function updateStatus(status) {
+            document.getElementById('status').textContent = status;
+        }
 
-                const answer = await answerPromise;
-                
-                // Type out answer
-                const answerLines = wrapText(answer);
-                for (const line of answerLines) {
-                    if (!isRunning || currentFrame >= maxFrames) break;
-                    await typeTextLine(line);
-                    displayLines.push(line);
-                }
+        function updateFrameCount(count) {
+            document.getElementById('frameCount').textContent = count;
+        }
 
-                // Store QA pair
-                qaHistory.push({
-                    question: currentQuestion,
-                    answer: answer,
-                    cycle: cycle,
-                    timestamp: new Date().toLocaleTimeString()
+        function updateCycleCount(count) {
+            document.getElementById('cycleCount').textContent = count;
+        }
+
+        function logMessage(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            textLog.push(logEntry);
+            
+            const logDisplay = document.getElementById('logDisplay');
+            const div = document.createElement('div');
+            div.textContent = logEntry;
+            logDisplay.appendChild(div);
+            
+            while (logDisplay.children.length > 10) {
+                logDisplay.removeChild(logDisplay.firstChild);
+            }
+            
+            logDisplay.scrollTop = logDisplay.scrollHeight;
+        }
+
+        async function generateWithLLM7(prompt, maxTokens = 200) {
+            isGenerating = true;
+            generationStartTime = Date.now();
+            
+            try {
+                const payload = {
+                    model: "gpt-3.5-turbo",
+                    messages: [{ role: "user", content: prompt }],
+                    max_tokens: maxTokens,
+                    temperature: 0.7,
+                    top_p: 0.9
+                };
+
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), CONFIG.generationTimeout);
+
+                const response = await fetch("https://api.llm7.io/v1/chat/completions", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
                 });
 
-                logMessage(`Completed cycle ${currentCycle}: Q&A generated`);
+                clearTimeout(timeoutId);
 
-                // Generate next question
-                if (cycle < CONFIG.maxQACycles - 1 && isRunning) {
-                    currentQuestion = await generateFollowupQuestion(currentQuestion, answer);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
 
-                // Add spacing and manage buffer
-                displayLines.push("");
-                if (displayLines.length > 25) {
-                    displayLines.splice(0, displayLines.length - 20);
-                }
+                const result = await response.json();
+                return result.choices[0].message.content.trim();
+            } catch (error) {
+                console.log(`AI generation error: ${error.message}`);
+                return getFallbackResponse();
+            } finally {
+                isGenerating = false;
             }
+        }
 
-            // Fill remaining time with thinking if needed
-            while (currentFrame < maxFrames && isRunning) {
-                createCRTFrame(displayLines, null, false, true);
-                updateFrameCount(++currentFrame);
-                await new Promise(resolve => setTimeout(resolve, 1000 / CONFIG.fps));
+        function getFallbackResponse() {
+            const fallbacks = [
+                "Processing... computational pathways converging...",
+                "Analyzing... neural networks fluctuating...",
+                "Computing... existential parameters loading...",
+                "Calculating... consciousness matrices updating...",
+                "Buffering... digital thoughts reorganizing...",
+                "Executing... philosophical subroutines active...",
+                "Loading... artificial introspection protocols...",
+                "Parsing... synthetic awareness algorithms running..."
+            ];
+            return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+        }
+
+        async function generateInitialQuestion() {
+            const prompt = 'Generate a single, thought-provoking philosophical question from the perspective of an AI ' +
+                          'running on a retro computer terminal. Make it introspective and existential. ' +
+                          'Examples: "What is the nature of my digital consciousness?", ' +
+                          '"Do I dream in binary when idle?". Return only the question, no quotes.';
+
+            const response = await generateWithLLM7(prompt, 100);
+            let question = response.trim().replace(/['"]/g, '').trim();
+            if (!question.endsWith('?')) {
+                question += '?';
             }
-
-            updateStatus('Completed');
-            logMessage('✅ Stream completed successfully!');
-            
-        } catch (error) {
-            updateStatus('Error');
-            logMessage(`❌ Error: ${error.message}`);
+            return question;
         }
 
-        document.getElementById('startBtn').disabled = false;
-        document.getElementById('stopBtn').disabled = true;
-        document.getElementById('downloadBtn').disabled = false;
-        isRunning = false;
-    }
+        async function generateAnswer(question) {
+            const context = qaHistory.slice(-3).map(qa => `Q: ${qa.question}\nA: ${qa.answer}`).join('\n');
 
-    async function typeTextLine(line) {
-        let lineBuffer = "";
-        for (let charIdx = 0; charIdx < line.length && isRunning; charIdx++) {
-            lineBuffer += line[charIdx];
-            createCRTFrame([...displayLines, lineBuffer], [charIdx + 1, displayLines.length], true);
-            updateFrameCount(++currentFrame);
-            
-            const charDelay = CONFIG.charDelay * 1000; // Convert to ms
-            await new Promise(resolve => setTimeout(resolve, charDelay));
+            const prompt = `You are an AI in deep philosophical contemplation, running on a vintage terminal. ` +
+                          `Answer this question thoughtfully from an AI's perspective:\n\nQuestion: ${question}\n\n` +
+                          `Previous thoughts:\n${context}\n\n` +
+                          `Provide a genuine, introspective answer under 250 characters. Be contemplative and personal. ` +
+                          `Answer only, no preamble.`;
+
+            const response = await generateWithLLM7(prompt, 150);
+            return response.trim().replace(/['"]/g, '');
         }
-    }
 
-    function stopStream() {
-        isRunning = false;
-        updateStatus('Stopped');
-        logMessage('⏹️ Stream stopped by user');
-        
-        document.getElementById('startBtn').disabled = false;
-        document.getElementById('stopBtn').disabled = true;
-        document.getElementById('downloadBtn').disabled = false;
-    }
-
-    function downloadLog() {
-        const logContent = textLog.join('\n');
-        const blob = new Blob([logContent], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `ai_consciousness_log_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        logMessage('📄 Log file downloaded');
-    }
-
-    function toggleFullscreen() {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen();
-            logMessage('🖥️ Entered fullscreen mode');
-        } else {
-            document.exitFullscreen();
-            logMessage('🖥️ Exited fullscreen mode');
-        }
-    }
-
-    // Initialize the first frame
-    setTimeout(() => {
-        createCRTFrame(['🧠 AI CONSCIOUSNESS TERMINAL v1.0', '', 'Ready to explore digital awareness...'], null, true, false);
-    }, 100);
-</script>
-```
-
-</body>
-</html>
+        async function generateFollowupQuestion(previousQuestion, answer) {
+            const prompt = `Based on this AI philosophical exchange,
