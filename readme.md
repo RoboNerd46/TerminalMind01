@@ -15,6 +15,3 @@ This app is configured for deployment on Render and similar platforms.
 ```bash
 npm install
 npm start
-```
-
-Visit `http://localhost:3000` to view the terminal.
