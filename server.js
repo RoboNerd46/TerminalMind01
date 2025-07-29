@@ -8,23 +8,21 @@ const PORT = process.env.PORT || 3000;
 
 // YouTube Live Stream Configuration
 const YOUTUBE_RTMP_URL = 'rtmp://a.rtmp.youtube.com/live2';
-// IMPORTANT: Replace 'YOUR_STREAM_KEY' with your actual YouTube Live Stream Key
-// The user previously confirmed their key is 'vq29-cq8y-y5e9-ypx7-8e0j'
-const STREAM_KEY = 'vq29-cq8y-y5e9-ypx7-8e0j';
+const STREAM_KEY = 'vq29-cq8y-y5e9-ypx7-8e0j'; // Your stream key
 
 let ffmpegProcess = null;
 let isStreaming = false;
 
-// Serve static files (like index.html, CSS, client-side JS)
+// Serve static files
 app.use(express.static('.'));
-app.use(express.json()); // For parsing JSON request bodies
+app.use(express.json());
 
-// Main route - serve the AI terminal HTML
+// Main route - serve the AI terminal
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Keep-alive endpoint for Render or similar platforms
+// Keep-alive endpoint
 app.get('/keep-alive', (req, res) => {
     res.status(200).send('Still alive!');
 });
@@ -48,72 +46,65 @@ app.post('/api/start-stream', (req, res) => {
     }
 
     try {
-        // FFmpeg command to stream raw video from stdin to YouTube RTMP
-        // Adjusted FFmpeg arguments for better compatibility/simplicity
-        ffmpegProcess = spawn('ffmpeg', [
-            // Input from stdin (raw video from canvas)
-            '-i', 'pipe:',
+        // FFmpeg command to stream to YouTube
+        const ffmpegArgs = [
             '-f', 'rawvideo',
-            '-pix_fmt', 'rgba', // Input pixel format from canvas.toDataURL (RGBA for transparency)
-            '-s', '854x480', // Input resolution (must match canvas resolution)
-            '-r', '24', // Input frame rate (from client-side CONFIG - assuming 24fps)
-
-            // Output options for YouTube (H.264 video, FLV container)
+            '-pix_fmt', 'rgba',
+            '-s', '854x480',  // Match your canvas size
+            '-r', '24',       // Frame rate
+            '-i', '-',        // Input from stdin
             '-c:v', 'libx264',
-            '-preset', 'veryfast', // Use 'veryfast' for lower CPU usage and better initial compatibility
-            '-tune', 'zerolatency', // Optimized for live streaming
-            '-pix_fmt', 'yuv420p', // Standard pixel format for H.264 encoding
-            '-b:v', '2000k',       // Video bitrate (2000 kbps - conservative for initial testing)
-            '-f', 'flv',          // Output format: Flash Video (standard for RTMP)
-            `${YOUTUBE_RTMP_URL}/${STREAM_KEY}` // Your YouTube RTMP URL and Stream Key
-        ]);
+            '-preset', 'ultrafast',
+            '-tune', 'zerolatency',
+            '-crf', '23',
+            '-pix_fmt', 'yuv420p',
+            '-f', 'flv',
+            `${YOUTUBE_RTMP_URL}/${STREAM_KEY}`
+        ];
 
-        // Listen for FFmpeg output (for debugging)
-        ffmpegProcess.stdout.on('data', (data) => {
-            // console.log(`FFmpeg stdout: ${data}`); // Uncomment for very verbose FFmpeg logs
-        });
+        ffmpegProcess = spawn('ffmpeg', ffmpegArgs);
+        isStreaming = true;
 
         ffmpegProcess.stderr.on('data', (data) => {
-            console.error(`FFmpeg: ${data}`);
+            console.log(`FFmpeg: ${data}`);
         });
 
-        // Handle FFmpeg process exit
         ffmpegProcess.on('close', (code) => {
             console.log(`FFmpeg process exited with code ${code}`);
-            ffmpegProcess = null;
             isStreaming = false;
+            ffmpegProcess = null;
         });
 
-        ffmpegProcess.on('error', (err) => {
-            console.error('Failed to start FFmpeg process:', err);
-            ffmpegProcess = null;
+        ffmpegProcess.on('error', (error) => {
+            console.error('FFmpeg error:', error);
             isStreaming = false;
+            ffmpegProcess = null;
         });
 
-        isStreaming = true;
         res.json({ success: true, message: 'YouTube stream started' });
-
     } catch (error) {
-        console.error('Error starting stream:', error);
-        res.status(500).json({ success: false, message: 'Failed to start stream', error: error.message });
+        console.error('Failed to start stream:', error);
+        res.json({ success: false, message: error.message });
     }
 });
 
 // Stop YouTube streaming endpoint
 app.post('/api/stop-stream', (req, res) => {
-    if (!isStreaming) {
-        return res.json({ success: false, message: 'Stream not running' });
+    if (!isStreaming || !ffmpegProcess) {
+        return res.json({ success: false, message: 'No stream running' });
     }
 
-    if (ffmpegProcess) {
-        ffmpegProcess.kill('SIGINT'); // Send interrupt signal to FFmpeg
-        ffmpegProcess = null;
+    try {
+        ffmpegProcess.kill('SIGTERM');
+        isStreaming = false;
+        res.json({ success: true, message: 'YouTube stream stopped' });
     }
-    isStreaming = false;
-    res.json({ success: true, message: 'YouTube stream stopped' });
+    catch (error) {
+        res.json({ success: false, message: error.message });
+    }
 });
 
-// WebSocket server for receiving canvas frames
+// WebSocket for receiving canvas frames
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
 
@@ -134,7 +125,7 @@ wss.on('connection', (ws) => {
     };
 
     resetFrameTimeout(); // Start the timeout when connection opens
-
+    
     ws.on('message', (message) => {
         resetFrameTimeout(); // Reset timeout on every message received
         try {
@@ -185,7 +176,6 @@ app.get('/api/stream-status', (req, res) => {
     });
 });
 
-// Start the server
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`🧠 AI Consciousness Terminal running on port ${PORT}`);
     console.log(`🔄 Keep-alive endpoint: /keep-alive`);
@@ -197,7 +187,7 @@ server.listen(PORT, '0.0.0.0', () => {
 process.on('SIGTERM', () => {
     console.log('SIGTERM received. Shutting down gracefully.');
     if (ffmpegProcess) {
-        ffmpegProcess.kill('SIGINT'); // Send interrupt signal to FFmpeg
+        ffmpegProcess.kill('SIGINT'); // Send interrupt signal
     }
     server.close(() => {
         console.log('HTTP server closed.');
