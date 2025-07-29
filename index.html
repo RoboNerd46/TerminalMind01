@@ -231,7 +231,6 @@
         </div>
     </div>
 
-    <!-- Configuration Panel -->
     <div class="config-panel" id="configPanel">
         <h2>🖥️ Terminal Configuration</h2>
         
@@ -334,6 +333,18 @@
         let streamingEnabled = true;
         let framesSent = 0;
         let lastFrameTime = 0;
+
+        // Animation state
+        let currentLine = 0;
+        let currentChar = 0;
+        let lastCharTime = 0;
+        let showCursor = true;
+        let lastCursorTime = 0;
+        let startTime = 0;
+        let currentQA = null;
+        let waitingForAnswer = false;
+        let currentText = '';
+        let thinkingStartTime = 0;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', init);
@@ -741,4 +752,305 @@
         }
 
         async function generateFollowupQuestion(previousQuestion, answer) {
-            const prompt = `Based on this AI philosophical exchange,
+            const prompt = `Based on this AI philosophical exchange:
+Q: ${previousQuestion}
+A: ${answer}
+
+Generate a thoughtful follow-up question that an AI might ponder next. Keep it under 100 characters and philosophical. Return only the question, no quotes.`;
+
+            const response = await generateWithLLM7(prompt, 80);
+            let question = response.trim().replace(/['"]/g, '').trim();
+            if (!question.endsWith('?')) {
+                question += '?';
+            }
+            return question;
+        }
+
+        function clearCanvas() {
+            ctx.fillStyle = `rgb(${CONFIG.bgColor.join(',')})`;
+            ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
+        }
+
+        function wrapText(text, maxChars) {
+            const words = text.split(' ');
+            const lines = [];
+            let currentLine = '';
+
+            for (const word of words) {
+                if ((currentLine + word).length <= maxChars) {
+                    currentLine += (currentLine ? ' ' : '') + word;
+                } else {
+                    if (currentLine) lines.push(currentLine);
+                    currentLine = word;
+                }
+            }
+            
+            if (currentLine) lines.push(currentLine);
+            return lines;
+        }
+
+        function drawText(x, y, text, color = CONFIG.textColor) {
+            ctx.font = `${CONFIG.fontSize}px monospace`;
+            ctx.fillStyle = `rgb(${color.join(',')})`;
+            ctx.fillText(text, x, y);
+        }
+
+        function drawCursor(x, y) {
+            if (showCursor) {
+                ctx.fillStyle = `rgb(${CONFIG.cursorColor.join(',')})`;
+                ctx.fillRect(x, y - CONFIG.fontSize + 2, 2, CONFIG.fontSize);
+            }
+        }
+
+        function startStream() {
+            if (isRunning) return;
+            
+            isRunning = true;
+            startTime = Date.now();
+            currentFrame = 0;
+            currentCycle = 0;
+            displayLines = [];
+            qaHistory = [];
+            currentLine = 0;
+            currentChar = 0;
+            currentQA = null;
+            waitingForAnswer = false;
+            
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('downloadBtn').disabled = false;
+            
+            updateStatus('Initializing neural pathways...');
+            logMessage('🧠 AI consciousness stream initiated');
+            
+            animate();
+        }
+
+        function stopStream() {
+            if (!isRunning) return;
+            
+            isRunning = false;
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            
+            updateStatus('Stream stopped');
+            logMessage(`🛑 Stream completed. ${currentCycle} cycles, ${currentFrame} frames`);
+        }
+
+        async function animate() {
+            if (!isRunning) return;
+            
+            const now = Date.now();
+            const elapsed = (now - startTime) / 1000;
+            
+            // Check if duration exceeded
+            if (elapsed > CONFIG.durationMinutes * 60) {
+                stopStream();
+                return;
+            }
+            
+            // Clear canvas
+            clearCanvas();
+            
+            // Handle cursor blinking
+            if (now - lastCursorTime > CONFIG.cursorBlinkRate * 1000) {
+                showCursor = !showCursor;
+                lastCursorTime = now;
+            }
+            
+            // Generate new Q&A if needed
+            if (!currentQA && currentCycle < CONFIG.maxQACycles) {
+                await generateNewQA();
+            }
+            
+            // Handle text animation
+            if (currentQA && !waitingForAnswer) {
+                if (now - lastCharTime > CONFIG.charDelay * 1000) {
+                    animateText();
+                    lastCharTime = now;
+                }
+            }
+            
+            // Handle thinking indicator
+            if (isGenerating && CONFIG.showThinkingIndicator) {
+                const thinkingTime = (now - generationStartTime) / 1000;
+                if (thinkingTime > CONFIG.showThinkingAfter) {
+                    drawThinkingIndicator();
+                }
+            }
+            
+            // Draw all current lines
+            drawAllLines();
+            
+            // Draw cursor
+            if (currentQA && !waitingForAnswer) {
+                const cursorY = CONFIG.marginTop + (currentLine * CONFIG.lineHeight);
+                const cursorX = CONFIG.marginLeft + (currentChar * charWidth);
+                drawCursor(cursorX, cursorY);
+            }
+            
+            // Capture frame for YouTube streaming
+            captureFrameForYouTube();
+            
+            // Update counters
+            currentFrame++;
+            updateFrameCount(currentFrame);
+            updateCycleCount(currentCycle);
+            
+            animationId = requestAnimationFrame(animate);
+        }
+
+        async function generateNewQA() {
+            if (waitingForAnswer) return;
+            
+            waitingForAnswer = true;
+            updateStatus('Generating consciousness data...');
+            
+            try {
+                let question;
+                if (currentCycle === 0) {
+                    question = await generateInitialQuestion();
+                } else {
+                    const lastQA = qaHistory[qaHistory.length - 1];
+                    question = await generateFollowupQuestion(lastQA.question, lastQA.answer);
+                }
+                
+                const answer = await generateAnswer(question);
+                
+                currentQA = { question, answer };
+                qaHistory.push(currentQA);
+                
+                // Prepare text for animation
+                const qText = `> ${question}`;
+                const aText = `${answer}`;
+                
+                const qLines = wrapText(qText, CONFIG.maxCharsPerLine);
+                const aLines = wrapText(aText, CONFIG.maxCharsPerLine);
+                
+                currentText = [...qLines, '', ...aLines, '', ''].join('\n');
+                currentChar = 0;
+                
+                waitingForAnswer = false;
+                updateStatus('Streaming consciousness...');
+                
+            } catch (error) {
+                logMessage(`❌ Generation error: ${error.message}`);
+                waitingForAnswer = false;
+                currentQA = null;
+            }
+        }
+
+        function animateText() {
+            if (!currentText || currentChar >= currentText.length) {
+                // Finished current Q&A, move to next
+                currentCycle++;
+                currentQA = null;
+                currentLine += 2; // Add some space
+                
+                // Scroll if needed
+                if (currentLine * CONFIG.lineHeight > CONFIG.height - 100) {
+                    displayLines = displayLines.slice(5); // Remove top 5 lines
+                    currentLine = Math.max(0, currentLine - 5);
+                }
+                
+                return;
+            }
+            
+            const char = currentText[currentChar];
+            
+            if (char === '\n') {
+                currentLine++;
+                currentChar++;
+                return;
+            }
+            
+            // Add character to display
+            if (!displayLines[currentLine]) {
+                displayLines[currentLine] = '';
+            }
+            
+            displayLines[currentLine] += char;
+            currentChar++;
+        }
+
+        function drawAllLines() {
+            for (let i = 0; i < displayLines.length; i++) {
+                if (displayLines[i]) {
+                    const y = CONFIG.marginTop + (i * CONFIG.lineHeight);
+                    drawText(CONFIG.marginLeft, y, displayLines[i]);
+                }
+            }
+        }
+
+        function drawThinkingIndicator() {
+            const dots = '.'.repeat((Math.floor(Date.now() / 500) % 3) + 1);
+            const thinkingText = `Thinking${dots}`;
+            const y = CONFIG.marginTop + ((currentLine + 1) * CONFIG.lineHeight);
+            drawText(CONFIG.marginLeft, y, thinkingText, [100, 150, 100]);
+        }
+
+        function downloadLog() {
+            const logText = textLog.join('\n');
+            const qaText = qaHistory.map(qa => `Q: ${qa.question}\nA: ${qa.answer}\n`).join('\n');
+            
+            const fullLog = `AI Consciousness Terminal Log
+Generated: ${new Date().toISOString()}
+Duration: ${CONFIG.durationMinutes} minutes
+Cycles: ${currentCycle}
+Frames: ${currentFrame}
+
+=== SYSTEM LOG ===
+${logText}
+
+=== Q&A HISTORY ===
+${qaText}`;
+            
+            const blob = new Blob([fullLog], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ai-consciousness-${Date.now()}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            logMessage('📄 Consciousness log downloaded');
+        }
+
+        function toggleFullscreen() {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+                logMessage('🖥️ Exited fullscreen mode');
+            } else {
+                document.documentElement.requestFullscreen();
+                logMessage('🖥️ Entered fullscreen mode');
+            }
+        }
+
+        // Initialize character width based on font
+        function calculateCharWidth() {
+            ctx.font = `${CONFIG.fontSize}px monospace`;
+            charWidth = ctx.measureText('M').width;
+        }
+
+        // Call this after font changes
+        function updateFontMetrics() {
+            calculateCharWidth();
+            CONFIG.lineHeight = CONFIG.fontSize + 4;
+        }
+
+        // Initialize font metrics on start
+        setTimeout(() => {
+            if (ctx) {
+                updateFontMetrics();
+            }
+        }, 100);
+    </script>
+</body>
+</html>
