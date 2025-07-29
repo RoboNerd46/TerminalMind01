@@ -1,206 +1,405 @@
-const express = require('express');
-const path = require('path');
-const { spawn } = require('child_process');
-const WebSocket = require('ws');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Stream of Consciousness - 286 Terminal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+        body {
+            background: #000;
+            color: #00ff41;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
 
-// YouTube Live Stream Configuration
-const YOUTUBE_RTMP_URL = 'rtmp://a.rtmp.youtube.com/live2';
-// IMPORTANT: Replace 'YOUR_STREAM_KEY' with your actual YouTube Live Stream Key
-// The user previously confirmed their key is 'vq29-cq8y-y5e9-ypx7-8e0j'
-const STREAM_KEY = 'vq29-cq8y-y5e9-ypx7-8e0j';
+        .container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
 
-let ffmpegProcess = null;
-let isStreaming = false;
+        .controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+        }
 
-// Serve static files (like index.html, CSS, client-side JS)
-app.use(express.static('.'));
-app.use(express.json()); // For parsing JSON request bodies
+        .controls button {
+            background: #001100;
+            color: #00ff41;
+            border: 1px solid #00ff41;
+            padding: 5px 10px;
+            margin: 2px;
+            cursor: pointer;
+            font-family: inherit;
+            border-radius: 3px;
+        }
 
-// Main route - serve the AI terminal HTML
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
+        .controls button:hover {
+            background: #002200;
+        }
 
-// Keep-alive endpoint for Render or similar platforms
-app.get('/keep-alive', (req, res) => {
-    res.status(200).send('Still alive!');
-});
+        canvas {
+            display: block;
+            flex-grow: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <canvas id="terminalCanvas"></canvas>
+        <div class="controls">
+            <button onclick="toggleFullscreen()">Fullscreen</button>
+            <button onclick="startStream()">Start Stream</button>
+            <button onclick="stopStream()">Stop Stream</button>
+            <button onclick="downloadLog()">Download Log</button>
+        </div>
+    </div>
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.json({
-        status: 'active',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        service: 'AI Consciousness Terminal',
-        streaming: isStreaming
-    });
-});
+    <script>
+        const canvas = document.getElementById('terminalCanvas');
+        const ctx = canvas.getContext('2d');
 
-// Start YouTube streaming endpoint
-app.post('/api/start-stream', (req, res) => {
-    if (isStreaming) {
-        return res.json({ success: false, message: 'Stream already running' });
-    }
+        const CONFIG = {
+            charLimit: 5000,
+            lineHeight: 18, // Adjusted dynamically
+            fontSize: 14,
+            fadeSpeed: 0.02, // Speed of text fading
+            scrollSpeed: 1, // Speed of content scrolling
+            updateInterval: 50, // Milliseconds between updates
+            wsReconnectInterval: 3000, // Milliseconds to wait before WebSocket reconnect
+            heartbeatInterval: 2000, // Milliseconds for WebSocket heartbeat
+            fps: 24 // Target frames per second for streaming
+        };
 
-    try {
-        // FFmpeg command to stream raw video from stdin to YouTube RTMP
-        // Adjusted FFmpeg arguments for better compatibility/simplicity
-        ffmpegProcess = spawn('ffmpeg', [
-            // Input from stdin (raw video from canvas)
-            '-i', 'pipe:',
-            '-f', 'rawvideo',
-            '-pix_fmt', 'rgba', // Input pixel format from canvas.toDataURL (RGBA for transparency)
-            '-s', '854x480', // Input resolution (must match canvas resolution)
-            '-r', '24', // Input frame rate (from client-side CONFIG - assuming 24fps)
+        let currentContent = '';
+        let displayContent = '';
+        let lines = [];
+        let charWidth = 0; // Will be calculated
+        let ws = null;
+        let isStreaming = false;
+        let streamInterval = null;
+        let heartbeatTimer = null;
 
-            // Output options for YouTube (H.264 video, FLV container)
-            '-c:v', 'libx264',
-            '-preset', 'veryfast', // Use 'veryfast' for lower CPU usage and better initial compatibility
-            '-tune', 'zerolatency', // Optimized for live streaming
-            '-pix_fmt', 'yuv420p', // Standard pixel format for H.264 encoding
-            '-b:v', '2000k',       // Video bitrate (2000 kbps - conservative for initial testing)
-            '-f', 'flv',          // Output format: Flash Video (standard for RTMP)
-            `${YOUTUBE_RTMP_URL}/${STREAM_KEY}` // Your YouTube RTMP URL and Stream Key
-        ]);
+        const systemLog = [];
+        const qaHistory = [];
+        let currentCycle = 1;
+        let currentFrame = 0;
 
-        // Listen for FFmpeg output (for debugging)
-        ffmpegProcess.stdout.on('data', (data) => {
-            // console.log(`FFmpeg stdout: ${data}`); // Uncomment for very verbose FFmpeg logs
-        });
+        function logMessage(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            systemLog.push(`[${timestamp}] ${message}`);
+            // Keep log short for display, but full for download
+            while (systemLog.length > 20) {
+                systemLog.shift();
+            }
+            drawTerminal(); // Redraw to show new log message
+        }
 
-        ffmpegProcess.stderr.on('data', (data) => {
-            console.error(`FFmpeg: ${data}`);
-        });
+        function addQA(question, answer) {
+            qaHistory.push(`Q: ${question}\nA: ${answer}`);
+            drawTerminal();
+        }
 
-        // Handle FFmpeg process exit
-        ffmpegProcess.on('close', (code) => {
-            console.log(`FFmpeg process exited with code ${code}`);
-            ffmpegProcess = null;
-            isStreaming = false;
-        });
+        // --- Core Terminal Logic (omitted for brevity, assume it generates `currentContent`) ---
+        // You'd have your existing AI consciousness generation and drawing logic here.
+        // For testing, ensure `currentContent` has some text that would be drawn.
+        
+        // Placeholder for AI content generation - replace with your actual LLM7.io integration
+        function generateAIContent() {
+            // This is a placeholder. Your actual AI logic would fetch real content.
+            // For testing, we just generate some moving text.
+            const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?/`~';
+            let newText = '';
+            for (let i = 0; i < 20; i++) { // Generate 20 random characters
+                newText += characters.charAt(Math.floor(Math.random() * characters.length));
+            }
+            currentContent += newText + ' '; // Add some space for readability
+            if (currentContent.length > CONFIG.charLimit) {
+                currentContent = currentContent.substring(currentContent.length - CONFIG.charLimit);
+            }
+            displayContent = currentContent; // Simple display, no complex scroll
+        }
 
-        ffmpegProcess.on('error', (err) => {
-            console.error('Failed to start FFmpeg process:', err);
-            ffmpegProcess = null;
-            isStreaming = false;
-        });
+        function drawTerminal() {
+            if (!ctx) return;
 
-        isStreaming = true;
-        res.json({ success: true, message: 'YouTube stream started' });
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    } catch (error) {
-        console.error('Error starting stream:', error);
-        res.status(500).json({ success: false, message: 'Failed to start stream', error: error.message });
-    }
-});
+            ctx.font = `${CONFIG.fontSize}px monospace`;
+            ctx.fillStyle = '#00ff41';
 
-// Stop YouTube streaming endpoint
-app.post('/api/stop-stream', (req, res) => {
-    if (!isStreaming) {
-        return res.json({ success: false, message: 'Stream not running' });
-    }
+            // Draw header
+            ctx.fillText(`AI Consciousness Terminal - Cycle: ${currentCycle}`, 10, 20);
 
-    if (ffmpegProcess) {
-        ffmpegProcess.kill('SIGINT'); // Send interrupt signal to FFmpeg
-        ffmpegProcess = null;
-    }
-    isStreaming = false;
-    res.json({ success: true, message: 'YouTube stream stopped' });
-});
+            // Calculate content lines based on displayContent and canvas width
+            lines = [];
+            let currentLine = '';
+            const maxCharsPerLine = Math.floor((canvas.width - 20) / charWidth); // 20px padding
+            const words = displayContent.split(' ');
 
-// WebSocket server for receiving canvas frames
-const server = require('http').createServer(app);
-const wss = new WebSocket.Server({ server });
+            for (const word of words) {
+                if ((currentLine + word).length * charWidth + 20 < canvas.width) {
+                    currentLine += word + ' ';
+                } else {
+                    lines.push(currentLine.trim());
+                    currentLine = word + ' ';
+                }
+            }
+            if (currentLine.trim() !== '') {
+                lines.push(currentLine.trim());
+            }
 
-wss.on('connection', (ws) => {
-    console.log('WebSocket client connected');
+            // Ensure we don't draw beyond canvas height, drawing from bottom up
+            const startY = canvas.height - 10 - (lines.length * CONFIG.lineHeight);
+            for (let i = 0; i < lines.length; i++) {
+                const y = startY + i * CONFIG.lineHeight;
+                if (y > 30) { // Don't draw over header
+                    ctx.fillText(lines[i], 10, y);
+                }
+            }
+            
+            // Draw System Log
+            ctx.fillText(`=== SYSTEM LOG ===`, 10, canvas.height - 10 - (systemLog.length + qaHistory.length + 3) * CONFIG.lineHeight);
+            systemLog.forEach((log, index) => {
+                ctx.fillText(log, 10, canvas.height - 10 - (systemLog.length - 1 - index + qaHistory.length + 1) * CONFIG.lineHeight);
+            });
 
-    // Add a timeout to detect if client stops sending frames/heartbeats
-    let frameTimeout;
+            // Draw Q&A History
+            if (qaHistory.length > 0) {
+                ctx.fillText(`=== Q&A HISTORY ===`, 10, canvas.height - 10 - (qaHistory.length + 1) * CONFIG.lineHeight);
+                qaHistory.forEach((qa, index) => {
+                    ctx.fillText(qa, 10, canvas.height - 10 - (qaHistory.length - 1 - index) * CONFIG.lineHeight);
+                });
+            }
+        }
 
-    const resetFrameTimeout = () => {
-        clearTimeout(frameTimeout);
-        frameTimeout = setTimeout(() => {
-            console.warn('Server: No frames/heartbeats received from client for 5 seconds. WebSocket might be stalled or disconnected client-side.');
-            // Optionally, you could close the WebSocket from server side here,
-            // but for now, just logging is sufficient for diagnosis.
-            // ws.close(1000, 'Client inactive');
-        }, 5000); // 5 seconds
-    };
 
-    resetFrameTimeout(); // Start the timeout when connection opens
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            updateFontMetrics();
+            drawTerminal();
+        }
 
-    ws.on('message', (message) => {
-        resetFrameTimeout(); // Reset timeout on every message received
-        try {
-            const data = JSON.parse(message);
+        // Initialize character width based on font
+        function calculateCharWidth() {
+            ctx.font = `${CONFIG.fontSize}px monospace`;
+            charWidth = ctx.measureText('M').width;
+        }
 
-            if (data.type === 'frame') {
-                if (isStreaming && ffmpegProcess) {
-                    // Convert base64 frame to buffer and send to FFmpeg
-                    const frameBuffer = Buffer.from(data.frame, 'base64');
+        // Call this after font changes
+        function updateFontMetrics() {
+            calculateCharWidth();
+            CONFIG.lineHeight = CONFIG.fontSize + 4;
+        }
 
-                    if (ffmpegProcess.stdin.writable) {
-                        ffmpegProcess.stdin.write(frameBuffer);
-                        // console.log('Server: Wrote frame to FFmpeg stdin.'); // Too verbose for production, keep commented
-                    } else {
-                        console.warn('Server: FFmpeg stdin not writable. Is FFmpeg process still running or did it crash?');
+        // --- WebSocket Logic ---
+        function connectWebSocket() {
+            // Use window.location.host to ensure correct host for Render deployment
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}`;
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                logMessage('🌐 WebSocket connected');
+                startHeartbeat(); // Start sending heartbeats
+            };
+
+            ws.onmessage = (event) => {
+                // Not expecting messages from server, but good practice to have
+                // console.log('WebSocket message from server:', event.data);
+            };
+
+            ws.onclose = (event) => {
+                logMessage(`🌐 WebSocket disconnected: Code ${event.code}, Reason: ${event.reason || 'N/A'}`);
+                stopHeartbeat(); // Stop heartbeats
+                // Attempt to reconnect if disconnection is not intentional
+                if (isStreaming) { // Only try to reconnect if we were actively streaming
+                    logMessage('🌐 Attempting to reconnect WebSocket...');
+                    setTimeout(connectWebSocket, CONFIG.wsReconnectInterval);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                logMessage('🌐 WebSocket error occurred');
+            };
+        }
+
+        function startHeartbeat() {
+            stopHeartbeat(); // Ensure no duplicate timers
+            heartbeatTimer = setInterval(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'heartbeat' }));
+                    // console.log('Client: Sent heartbeat'); // Only for detailed debugging
+                }
+            }, CONFIG.heartbeatInterval);
+        }
+
+        function stopHeartbeat() {
+            if (heartbeatTimer) {
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+            }
+        }
+
+        function sendFrame() {
+            if (ws && ws.readyState === WebSocket.OPEN && isStreaming) {
+                // Ensure canvas has content before trying to send
+                if (canvas.width > 0 && canvas.height > 0) {
+                    try {
+                        const frame = canvas.toDataURL('image/png').split(',')[1];
+                        ws.send(JSON.stringify({ type: 'frame', frame: frame }));
+                        currentFrame++;
+                        // console.log('Client: Sent frame to WebSocket. Frame count:', currentFrame); // ADDED LOG
+                    } catch (error) {
+                        console.error('Client: Error capturing or sending frame:', error); // ADDED LOG
+                        logMessage('Error sending frame to server');
+                    }
+                } else {
+                    console.warn('Client: Canvas dimensions are zero, cannot capture frame.'); // ADDED LOG
+                }
+            } else {
+                // console.warn('Client: WebSocket not open or not streaming, cannot send frame.'); // Too verbose
+            }
+        }
+
+        // --- Streaming Control ---
+        async function startStream() {
+            if (isStreaming) {
+                logMessage('Stream already active.');
+                return;
+            }
+
+            try {
+                // Connect WebSocket first
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    logMessage('Connecting WebSocket before starting stream...');
+                    connectWebSocket();
+                    // Give it a moment to connect
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    if (!ws || ws.readyState !== WebSocket.OPEN) {
+                        logMessage('Failed to connect WebSocket. Cannot start stream.');
+                        return;
                     }
                 }
-            } else if (data.type === 'heartbeat') {
-                // console.log('Server: Client heartbeat received.'); // Commented out to reduce log noise
+
+                // Call server to start FFmpeg process
+                const response = await fetch('/api/start-stream', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    isStreaming = true;
+                    logMessage('🟢 Stream started! Sending frames...');
+                    if (streamInterval) clearInterval(streamInterval); // Clear any old interval
+                    streamInterval = setInterval(sendFrame, 1000 / CONFIG.fps); // Send frames at target FPS
+                } else {
+                    logMessage(`🔴 Failed to start stream: ${data.message}`);
+                }
+            } catch (error) {
+                console.error('Error starting stream:', error);
+                logMessage(`🔴 Network error starting stream: ${error.message}`);
             }
-        } catch (error) {
-            console.error('WebSocket message parsing error:', error);
         }
-    });
 
-    ws.on('close', () => {
-        clearTimeout(frameTimeout); // Clear timeout when connection closes
-        console.log('WebSocket client disconnected');
-        // If FFmpeg is running and was relying on this client, stop it
-        if (ffmpegProcess) {
-             console.log('Stopping FFmpeg due to WebSocket client disconnect.');
-             ffmpegProcess.kill('SIGINT'); // Send interrupt signal
-             ffmpegProcess = null;
-             isStreaming = false;
+        async function stopStream() {
+            if (!isStreaming) {
+                logMessage('Stream is not active.');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/stop-stream', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    isStreaming = false;
+                    if (streamInterval) clearInterval(streamInterval);
+                    streamInterval = null;
+                    logMessage('🛑 Stream stopped.');
+                } else {
+                    logMessage(`⚠️ Failed to stop stream: ${data.message}`);
+                }
+            } catch (error) {
+                console.error('Error stopping stream:', error);
+                logMessage(`⚠️ Network error stopping stream: ${error.message}`);
+            } finally {
+                // Always stop client-side frame sending even if API fails
+                if (streamInterval) clearInterval(streamInterval);
+                streamInterval = null;
+                isStreaming = false;
+            }
         }
-    });
 
-    ws.on('error', (error) => {
-        console.error('WebSocket server error:', error);
-    });
-});
+        // --- Utility Functions ---
+        function downloadLog() {
+            const logText = systemLog.join('\n');
+            const qaText = qaHistory.join('\n');
+            const fullLog = `AI Consciousness Terminal Log\n\n` +
+                            `Generated: ${new Date().toISOString()}\n\n` +
+                            `Cycle: ${currentCycle}\n` +
+                            `Frames: ${currentFrame}\n\n` +
+                            `=== SYSTEM LOG ===\n${logText}\n\n` +
+                            `=== Q&A HISTORY ===\n${qaText}`;
+            
+            const blob = new Blob([fullLog], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ai-consciousness-${Date.now()}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            logMessage('📄 Consciousness log downloaded');
+        }
 
-// Stream status endpoint
-app.get('/api/stream-status', (req, res) => {
-    res.json({
-        streaming: isStreaming,
-        youtube_url: isStreaming ? `${YOUTUBE_RTMP_URL}/${STREAM_KEY}` : null
-    });
-});
+        function toggleFullscreen() {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+                logMessage('🖥️ Exited fullscreen mode');
+            } else {
+                document.documentElement.requestFullscreen();
+                logMessage('🖥️ Entered fullscreen mode');
+            }
+        }
 
-// Start the server
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🧠 AI Consciousness Terminal running on port ${PORT}`);
-    console.log(`🔄 Keep-alive endpoint: /keep-alive`);
-    console.log(`📊 Health check: /health`);
-    console.log(`📺 YouTube streaming ready`);
-});
+        // --- Initialization ---
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Initial setup
+        resizeCanvas();
+        connectWebSocket(); // Connect WebSocket on page load
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('SIGTERM received. Shutting down gracefully.');
-    if (ffmpegProcess) {
-        ffmpegProcess.kill('SIGINT'); // Send interrupt signal to FFmpeg
-    }
-    server.close(() => {
-        console.log('HTTP server closed.');
-        process.exit(0);
-    });
-});
+        // Start content generation and drawing loop
+        setInterval(() => {
+            generateAIContent(); // Update AI content
+            drawTerminal();       // Redraw the terminal
+        }, CONFIG.updateInterval);
+
+        // Simulate initial AI content for display
+        logMessage('Initializing AI consciousness...');
+        logMessage('Establishing neural pathways...');
+        logMessage('System ready.');
+        generateAIContent(); // Initial content
+        drawTerminal();
+    </script>
+</body>
+</html>
