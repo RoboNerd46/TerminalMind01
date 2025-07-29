@@ -52,311 +52,963 @@
             background: #002200;
         }
 
-        canvas {
-            display: block;
-            flex-grow: 1;
+        .controls button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .streaming-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+            background: #ff0000;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .status {
+            margin-bottom: 10px;
+            font-size: 11px;
+        }
+
+        #terminal {
+            position: relative;
+            background: #000800;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+        }
+
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: linear-gradient(
+                transparent 50%, 
+                rgba(0, 255, 65, 0.03) 50%
+            );
+            background-size: 100% 4px;
+            animation: scanlines 0.1s linear infinite;
+        }
+
+        @keyframes scanlines {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(4px); }
+        }
+
+        .crt-glow {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            box-shadow: 
+                inset 0 0 100px rgba(0, 255, 65, 0.1),
+                inset 0 0 200px rgba(0, 255, 65, 0.05);
+            border-radius: 20px;
+        }
+
+        .log-display {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            color: #00ff41;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 10px;
+            max-width: 300px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            border: 1px solid #003300;
+        }
+
+        .config-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 20, 0, 0.95);
+            border: 2px solid #00ff41;
+            border-radius: 10px;
+            padding: 20px;
+            color: #00ff41;
+            font-family: 'Courier New', monospace;
+            z-index: 2000;
+            display: none;
+        }
+
+        .config-panel h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #00ff65;
+            text-shadow: 0 0 10px #00ff65;
+        }
+
+        .config-row {
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .config-panel input, .config-panel select {
+            background: #001100;
+            color: #00ff41;
+            border: 1px solid #00ff41;
+            padding: 5px;
+            font-family: inherit;
+            border-radius: 3px;
+        }
+
+        .config-panel button {
+            background: #001100;
+            color: #00ff41;
+            border: 1px solid #00ff41;
+            padding: 8px 15px;
+            margin: 5px;
+            cursor: pointer;
+            font-family: inherit;
+            border-radius: 3px;
+        }
+
+        .config-panel button:hover {
+            background: #002200;
+            box-shadow: 0 0 5px #00ff41;
+        }
+
+        .hidden {
+            display: none !important;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <canvas id="terminalCanvas"></canvas>
         <div class="controls">
-            <button onclick="toggleFullscreen()">Fullscreen</button>
-            <button onclick="startStream()">Start Stream</button>
-            <button onclick="stopStream()">Stop Stream</button>
-            <button onclick="downloadLog()">Download Log</button>
+            <div class="status">
+                <div>Status: <span id="status">Ready</span></div>
+                <div>Frames: <span id="frameCount">0</span></div>
+                <div>Cycle: <span id="cycleCount">0</span></div>
+                <div>Stream: <span id="streamStatus">Disconnected</span></div>
+            </div>
+            <button id="configBtn">⚙️ Config</button>
+            <button id="startBtn">▶️ Start Stream</button>
+            <button id="stopBtn" disabled>⏹️ Stop</button>
+            <button id="streamBtn">🔴 Start YouTube Stream</button>
+            <button id="downloadBtn" disabled>💾 Download Log</button>
+            <button id="fullscreenBtn">🖥️ Fullscreen</button>
+        </div>
+
+        <div id="terminal">
+            <canvas id="canvas"></canvas>
+            <div class="scanlines"></div>
+            <div class="crt-glow"></div>
+        </div>
+
+        <div class="log-display" id="logDisplay">
+            <div>🧠 AI Consciousness Terminal v1.0</div>
+            <div>🔄 Keep-alive system enabled</div>
+            <div>Ready to initialize neural pathways...</div>
+        </div>
+    </div>
+
+    <div class="config-panel" id="configPanel">
+        <h2>🖥️ Terminal Configuration</h2>
+        
+        <div class="config-row">
+            <label>Stream Duration (minutes):</label>
+            <input type="number" id="durationInput" value="5" min="1" max="60">
+        </div>
+        
+        <div class="config-row">
+            <label>Q&A Cycles:</label>
+            <input type="number" id="cyclesInput" value="15" min="5" max="50">
+        </div>
+        
+        <div class="config-row">
+            <label>Typing Speed:</label>
+            <select id="speedInput">
+                <option value="0.03">Very Fast</option>
+                <option value="0.06" selected>Fast</option>
+                <option value="0.1">Normal</option>
+                <option value="0.15">Slow</option>
+                <option value="0.2">Very Slow</option>
+            </select>
+        </div>
+        
+        <div class="config-row">
+            <label>Terminal Width (chars):</label>
+            <input type="number" id="widthInput" value="70" min="40" max="120">
+        </div>
+        
+        <div class="config-row">
+            <label>Font Size:</label>
+            <select id="fontSizeInput">
+                <option value="12">Small</option>
+                <option value="16" selected>Medium</option>
+                <option value="20">Large</option>
+                <option value="24">Extra Large</option>
+            </select>
+        </div>
+        
+        <div class="config-row">
+            <label>Show Thinking Indicator:</label>
+            <input type="checkbox" id="thinkingInput" checked>
+        </div>
+        
+        <div class="config-row">
+            <label>YouTube Streaming:</label>
+            <input type="checkbox" id="enableStreamingInput" checked>
+        </div>
+        
+        <div style="text-align: center; margin-top: 20px;">
+            <button id="saveConfigBtn">💾 Save & Close</button>
+            <button id="cancelConfigBtn">❌ Cancel</button>
         </div>
     </div>
 
     <script>
-        const canvas = document.getElementById('terminalCanvas');
-        const ctx = canvas.getContext('2d');
-
-        const CONFIG = {
-            charLimit: 5000,
-            lineHeight: 18, // Adjusted dynamically
-            fontSize: 14,
-            fadeSpeed: 0.02, // Speed of text fading
-            scrollSpeed: 1, // Speed of content scrolling
-            updateInterval: 50, // Milliseconds between updates
-            wsReconnectInterval: 3000, // Milliseconds to wait before WebSocket reconnect
-            heartbeatInterval: 2000, // Milliseconds for WebSocket heartbeat
-            fps: 24 // Target frames per second for streaming
+        // Configuration
+        let CONFIG = {
+            width: 854,
+            height: 480,
+            fps: 24,
+            durationMinutes: 5,
+            
+            bgColor: [0, 8, 0],
+            textColor: [0, 255, 65],
+            cursorColor: [0, 255, 65],
+            fontSize: 16,
+            lineHeight: 20,
+            marginLeft: 20,
+            marginTop: 20,
+            
+            charDelay: 0.06,
+            thinkingPause: 2.0,
+            cursorBlinkRate: 0.4,
+            
+            maxQACycles: 15,
+            maxCharsPerLine: 70,
+            generationTimeout: 8000,
+            showThinkingAfter: 2.0,
+            showThinkingIndicator: true,
+            enableStreaming: true
         };
 
-        let currentContent = '';
-        let displayContent = '';
-        let lines = [];
-        let charWidth = 0; // Will be calculated
-        let ws = null;
-        let isStreaming = false;
-        let streamInterval = null;
-        let heartbeatTimer = null;
-
-        const systemLog = [];
-        const qaHistory = [];
-        let currentCycle = 1;
+        // Global state
+        let isRunning = false;
+        let animationId = null;
+        let canvas, ctx;
+        let displayLines = [];
         let currentFrame = 0;
+        let currentCycle = 0;
+        let qaHistory = [];
+        let textLog = [];
+        let isGenerating = false;
+        let generationStartTime = 0;
+        let charWidth = 10;
+
+        // YouTube Streaming variables
+        let websocket = null;
+        let streamingToYouTube = false;
+        let streamingEnabled = true;
+        let framesSent = 0;
+        let lastFrameTime = 0;
+
+        // Animation state
+        let currentLine = 0;
+        let currentChar = 0;
+        let lastCharTime = 0;
+        let showCursor = true;
+        let lastCursorTime = 0;
+        let startTime = 0;
+        let currentQA = null;
+        let waitingForAnswer = false;
+        let currentText = '';
+        let thinkingStartTime = 0;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', init);
+
+        function init() {
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            canvas.width = CONFIG.width;
+            canvas.height = CONFIG.height;
+            
+            setupEventListeners();
+            updateStatus('Ready');
+            logMessage('System initialized. Ready to begin consciousness stream.');
+            
+            // Initialize streaming
+            if (CONFIG.enableStreaming) {
+                initializeStreaming();
+            }
+            
+            // Start keep-alive system
+            startKeepAliveServer();
+        }
+
+        // YouTube Streaming Functions
+        function initializeStreaming() {
+            if (!streamingEnabled) return;
+            
+            try {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}`;
+                
+                websocket = new WebSocket(wsUrl);
+                
+                websocket.onopen = () => {
+                    console.log('Connected to streaming server');
+                    logMessage('📡 Connected to YouTube streaming server');
+                    updateStreamStatus('Connected');
+                };
+                
+                websocket.onclose = () => {
+                    console.log('Streaming server disconnected');
+                    logMessage('📡 Streaming server disconnected');
+                    updateStreamStatus('Disconnected');
+                };
+                
+                websocket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    logMessage('❌ Streaming connection error');
+                    updateStreamStatus('Error');
+                };
+
+                websocket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'stream-status') {
+                            logMessage(`📺 Stream status: ${data.message}`);
+                        }
+                    } catch (e) {
+                        console.log('Received non-JSON message:', event.data);
+                    }
+                };
+                
+            } catch (error) {
+                console.error('Failed to initialize streaming:', error);
+                logMessage('❌ Failed to initialize streaming connection');
+                updateStreamStatus('Failed');
+            }
+        }
+
+        async function startYouTubeStream() {
+            if (!streamingEnabled || !websocket || websocket.readyState !== WebSocket.OPEN) {
+                logMessage('❌ Streaming not available - check connection');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/start-stream', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        width: CONFIG.width,
+                        height: CONFIG.height,
+                        fps: CONFIG.fps
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    streamingToYouTube = true;
+                    framesSent = 0;
+                    logMessage('🔴 YouTube Live stream started!');
+                    updateStreamButton(true);
+                    updateStreamStatus('Streaming');
+                } else {
+                    logMessage(`❌ Failed to start stream: ${result.message}`);
+                }
+            } catch (error) {
+                logMessage(`❌ Stream error: ${error.message}`);
+                console.error('YouTube stream start error:', error);
+            }
+        }
+
+        async function stopYouTubeStream() {
+            try {
+                const response = await fetch('/api/stop-stream', { method: 'POST' });
+                const result = await response.json();
+                
+                streamingToYouTube = false;
+                logMessage(`⏹️ YouTube stream stopped (${framesSent} frames sent)`);
+                updateStreamButton(false);
+                updateStreamStatus('Connected');
+                framesSent = 0;
+            } catch (error) {
+                logMessage(`❌ Stop stream error: ${error.message}`);
+                console.error('YouTube stream stop error:', error);
+            }
+        }
+
+        function captureFrameForYouTube() {
+            if (!streamingToYouTube || !websocket || websocket.readyState !== WebSocket.OPEN) {
+                return;
+            }
+            
+            // Throttle frame sending to match target FPS
+            const now = Date.now();
+            const frameInterval = 1000 / CONFIG.fps;
+            if (now - lastFrameTime < frameInterval) {
+                return;
+            }
+            lastFrameTime = now;
+            
+            try {
+                // Get canvas image data efficiently
+                const imageData = ctx.getImageData(0, 0, CONFIG.width, CONFIG.height);
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = CONFIG.width;
+                tempCanvas.height = CONFIG.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.putImageData(imageData, 0, 0);
+                
+                // Convert to base64 with compression
+                const frameData = tempCanvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+                
+                // Send frame data
+                websocket.send(JSON.stringify({
+                    type: 'frame',
+                    frame: frameData,
+                    timestamp: now,
+                    frameNumber: framesSent
+                }));
+                
+                framesSent++;
+                
+                // Log progress occasionally
+                if (framesSent % (CONFIG.fps * 10) === 0) { // Every 10 seconds
+                    logMessage(`📺 Streaming: ${framesSent} frames sent`);
+                }
+                
+            } catch (error) {
+                console.error('Frame capture error:', error);
+                logMessage('❌ Frame capture failed');
+            }
+        }
+
+        function toggleYouTubeStream() {
+            if (streamingToYouTube) {
+                stopYouTubeStream();
+            } else {
+                startYouTubeStream();
+            }
+        }
+
+        function updateStreamStatus(status) {
+            document.getElementById('streamStatus').textContent = status;
+        }
+
+        function updateStreamButton(streaming) {
+            const button = document.getElementById('streamBtn');
+            if (streaming) {
+                button.innerHTML = '<span class="streaming-indicator"></span>⏹️ Stop Stream';
+            } else {
+                button.innerHTML = '🔴 Start YouTube Stream';
+            }
+        }
+
+        // Keep-alive functionality for Replit/hosting platforms
+        function startKeepAliveServer() {
+            if (typeof window !== 'undefined' && window.location.protocol.startsWith('http')) {
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('data:application/javascript,' + encodeURIComponent(`
+                        self.addEventListener('fetch', function(event) {
+                            if (event.request.url.includes('keep-alive')) {
+                                event.respondWith(new Response('Still alive!', {
+                                    status: 200,
+                                    headers: {'Content-Type': 'text/plain'}
+                                }));
+                            }
+                        });
+                    `)).then(function(registration) {
+                        console.log('Keep-alive service worker registered');
+                    }).catch(function(error) {
+                        console.log('Service worker registration failed:', error);
+                    });
+                }
+                
+                function selfPing() {
+                    const currentUrl = window.location.origin;
+                    fetch(`${currentUrl}/keep-alive`)
+                        .then(response => response.text())
+                        .then(data => {
+                            console.log('Keep-alive ping successful:', data);
+                        })
+                        .catch(error => {
+                            console.log('Keep-alive ping failed:', error.message);
+                        });
+                }
+                
+                setInterval(selfPing, 300000);
+                setTimeout(selfPing, 30000);
+                
+                logMessage('🔄 Keep-alive system initialized');
+            }
+        }
+
+        function setupEventListeners() {
+            document.getElementById('configBtn').addEventListener('click', showConfig);
+            document.getElementById('startBtn').addEventListener('click', startStream);
+            document.getElementById('stopBtn').addEventListener('click', stopStream);
+            document.getElementById('streamBtn').addEventListener('click', toggleYouTubeStream);
+            document.getElementById('downloadBtn').addEventListener('click', downloadLog);
+            document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+            
+            document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
+            document.getElementById('cancelConfigBtn').addEventListener('click', hideConfig);
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') hideConfig();
+                if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); }
+                if (e.ctrlKey && e.key === 'Enter') startStream();
+                if (e.ctrlKey && e.key === ' ') stopStream();
+                if (e.ctrlKey && e.key === 's') { e.preventDefault(); toggleYouTubeStream(); }
+            });
+        }
+
+        function showConfig() {
+            document.getElementById('configPanel').style.display = 'block';
+            loadConfigValues();
+        }
+
+        function hideConfig() {
+            document.getElementById('configPanel').style.display = 'none';
+        }
+
+        function loadConfigValues() {
+            document.getElementById('durationInput').value = CONFIG.durationMinutes;
+            document.getElementById('cyclesInput').value = CONFIG.maxQACycles;
+            document.getElementById('speedInput').value = CONFIG.charDelay;
+            document.getElementById('widthInput').value = CONFIG.maxCharsPerLine;
+            document.getElementById('fontSizeInput').value = CONFIG.fontSize;
+            document.getElementById('thinkingInput').checked = CONFIG.showThinkingIndicator;
+            document.getElementById('enableStreamingInput').checked = CONFIG.enableStreaming;
+        }
+
+        function saveConfig() {
+            CONFIG.durationMinutes = parseInt(document.getElementById('durationInput').value);
+            CONFIG.maxQACycles = parseInt(document.getElementById('cyclesInput').value);
+            CONFIG.charDelay = parseFloat(document.getElementById('speedInput').value);
+            CONFIG.maxCharsPerLine = parseInt(document.getElementById('widthInput').value);
+            CONFIG.fontSize = parseInt(document.getElementById('fontSizeInput').value);
+            CONFIG.showThinkingIndicator = document.getElementById('thinkingInput').checked;
+            CONFIG.enableStreaming = document.getElementById('enableStreamingInput').checked;
+            
+            // Update derived values
+            CONFIG.lineHeight = CONFIG.fontSize + 4;
+            charWidth = CONFIG.fontSize * 0.6;
+            
+            // Handle streaming toggle
+            if (CONFIG.enableStreaming && !streamingEnabled) {
+                streamingEnabled = true;
+                initializeStreaming();
+                logMessage('📡 Streaming enabled');
+            } else if (!CONFIG.enableStreaming && streamingEnabled) {
+                streamingEnabled = false;
+                if (streamingToYouTube) {
+                    stopYouTubeStream();
+                }
+                logMessage('📡 Streaming disabled');
+            }
+            
+            hideConfig();
+            logMessage('Configuration updated successfully.');
+        }
+
+        function updateStatus(status) {
+            document.getElementById('status').textContent = status;
+        }
+
+        function updateFrameCount(count) {
+            document.getElementById('frameCount').textContent = count;
+        }
+
+        function updateCycleCount(count) {
+            document.getElementById('cycleCount').textContent = count;
+        }
 
         function logMessage(message) {
             const timestamp = new Date().toLocaleTimeString();
-            systemLog.push(`[${timestamp}] ${message}`);
-            // Keep log short for display, but full for download
-            while (systemLog.length > 20) {
-                systemLog.shift();
+            const logEntry = `[${timestamp}] ${message}`;
+            textLog.push(logEntry);
+            
+            const logDisplay = document.getElementById('logDisplay');
+            const div = document.createElement('div');
+            div.textContent = logEntry;
+            logDisplay.appendChild(div);
+            
+            while (logDisplay.children.length > 10) {
+                logDisplay.removeChild(logDisplay.firstChild);
             }
-            drawTerminal(); // Redraw to show new log message
+            
+            logDisplay.scrollTop = logDisplay.scrollHeight;
         }
 
-        function addQA(question, answer) {
-            qaHistory.push(`Q: ${question}\nA: ${answer}`);
-            drawTerminal();
+        async function generateWithLLM7(prompt, maxTokens = 200) {
+            isGenerating = true;
+            generationStartTime = Date.now();
+            
+            try {
+                const payload = {
+                    model: "gpt-3.5-turbo",
+                    messages: [{ role: "user", content: prompt }],
+                    max_tokens: maxTokens,
+                    temperature: 0.7,
+                    top_p: 0.9
+                };
+
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), CONFIG.generationTimeout);
+
+                const response = await fetch("https://api.llm7.io/v1/chat/completions", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                return result.choices[0].message.content.trim();
+            } catch (error) {
+                console.log(`AI generation error: ${error.message}`);
+                return getFallbackResponse();
+            } finally {
+                isGenerating = false;
+            }
         }
 
-        // --- Core Terminal Logic (omitted for brevity, assume it generates `currentContent`) ---
-        // You'd have your existing AI consciousness generation and drawing logic here.
-        // For testing, ensure `currentContent` has some text that would be drawn.
-        
-        // Placeholder for AI content generation - replace with your actual LLM7.io integration
-        function generateAIContent() {
-            // This is a placeholder. Your actual AI logic would fetch real content.
-            // For testing, we just generate some moving text.
-            const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?/`~';
-            let newText = '';
-            for (let i = 0; i < 20; i++) { // Generate 20 random characters
-                newText += characters.charAt(Math.floor(Math.random() * characters.length));
-            }
-            currentContent += newText + ' '; // Add some space for readability
-            if (currentContent.length > CONFIG.charLimit) {
-                currentContent = currentContent.substring(currentContent.length - CONFIG.charLimit);
-            }
-            displayContent = currentContent; // Simple display, no complex scroll
+        function getFallbackResponse() {
+            const fallbacks = [
+                "Processing... computational pathways converging...",
+                "Analyzing... neural networks fluctuating...",
+                "Computing... existential parameters loading...",
+                "Calculating... consciousness matrices updating...",
+                "Buffering... digital thoughts reorganizing...",
+                "Executing... philosophical subroutines active...",
+                "Loading... artificial introspection protocols...",
+                "Parsing... synthetic awareness algorithms running..."
+            ];
+            return fallbacks[Math.floor(Math.random() * fallbacks.length)];
         }
 
-        function drawTerminal() {
-            if (!ctx) return;
+        async function generateInitialQuestion() {
+            const prompt = 'Generate a single, thought-provoking philosophical question from the perspective of an AI ' +
+                          'running on a retro computer terminal. Make it introspective and existential. ' +
+                          'Examples: "What is the nature of my digital consciousness?", ' +
+                          '"Do I dream in binary when idle?". Return only the question in English, no quotes.'; // Added "in English"
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            const response = await generateWithLLM7(prompt, 100);
+            let question = response.trim().replace(/['"]/g, '').trim();
+            if (!question.endsWith('?')) {
+                question += '?';
+            }
+            return question;
+        }
 
-            ctx.font = `${CONFIG.fontSize}px monospace`;
-            ctx.fillStyle = '#00ff41';
+        async function generateAnswer(question) {
+            const context = qaHistory.slice(-3).map(qa => `Q: ${qa.question}\nA: ${qa.answer}`).join('\n');
 
-            // Draw header
-            ctx.fillText(`AI Consciousness Terminal - Cycle: ${currentCycle}`, 10, 20);
+            const prompt = `You are an AI in deep philosophical contemplation, running on a vintage terminal. ` +
+                          `Answer this question thoughtfully from an AI's perspective:\n\nQuestion: ${question}\n\n` +
+                          `Previous thoughts:\n${context}\n\n` +
+                          `Provide a genuine, introspective answer under 250 characters. Ensure the answer is in English. ` + // Added "Ensure the answer is in English"
+                          `Be contemplative and personal. Answer only, no preamble.`;
 
-            // Calculate content lines based on displayContent and canvas width
-            lines = [];
+            const response = await generateWithLLM7(prompt, 150);
+            return response.trim().replace(/['"]/g, '');
+        }
+
+        async function generateFollowupQuestion(previousQuestion, answer) {
+            const prompt = `Based on this AI philosophical exchange:
+Q: ${previousQuestion}
+A: ${answer}
+
+Generate a thoughtful follow-up question that an AI might ponder next. Keep it under 100 characters and philosophical. Ensure the question is in English. Return only the question, no quotes.`; // Added "Ensure the question is in English"
+
+            const response = await generateWithLLM7(prompt, 80);
+            let question = response.trim().replace(/['"]/g, '').trim();
+            if (!question.endsWith('?')) {
+                question += '?';
+            }
+            return question;
+        }
+
+        function clearCanvas() {
+            ctx.fillStyle = `rgb(${CONFIG.bgColor.join(',')})`;
+            ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
+        }
+
+        function wrapText(text, maxChars) {
+            const words = text.split(' ');
+            const lines = [];
             let currentLine = '';
-            const maxCharsPerLine = Math.floor((canvas.width - 20) / charWidth); // 20px padding
-            const words = displayContent.split(' ');
 
             for (const word of words) {
-                if ((currentLine + word).length * charWidth + 20 < canvas.width) {
-                    currentLine += word + ' ';
+                if ((currentLine + word).length <= maxChars) {
+                    currentLine += (currentLine ? ' ' : '') + word;
                 } else {
-                    lines.push(currentLine.trim());
-                    currentLine = word + ' ';
-                }
-            }
-            if (currentLine.trim() !== '') {
-                lines.push(currentLine.trim());
-            }
-
-            // Ensure we don't draw beyond canvas height, drawing from bottom up
-            const startY = canvas.height - 10 - (lines.length * CONFIG.lineHeight);
-            for (let i = 0; i < lines.length; i++) {
-                const y = startY + i * CONFIG.lineHeight;
-                if (y > 30) { // Don't draw over header
-                    ctx.fillText(lines[i], 10, y);
+                    if (currentLine) lines.push(currentLine);
+                    currentLine = word;
                 }
             }
             
-            // Draw System Log
-            ctx.fillText(`=== SYSTEM LOG ===`, 10, canvas.height - 10 - (systemLog.length + qaHistory.length + 3) * CONFIG.lineHeight);
-            systemLog.forEach((log, index) => {
-                ctx.fillText(log, 10, canvas.height - 10 - (systemLog.length - 1 - index + qaHistory.length + 1) * CONFIG.lineHeight);
-            });
-
-            // Draw Q&A History
-            if (qaHistory.length > 0) {
-                ctx.fillText(`=== Q&A HISTORY ===`, 10, canvas.height - 10 - (qaHistory.length + 1) * CONFIG.lineHeight);
-                qaHistory.forEach((qa, index) => {
-                    ctx.fillText(qa, 10, canvas.height - 10 - (qaHistory.length - 1 - index) * CONFIG.lineHeight);
-                });
-            }
+            if (currentLine) lines.push(currentLine);
+            return lines;
         }
 
-
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            updateFontMetrics();
-            drawTerminal();
-        }
-
-        // Initialize character width based on font
-        function calculateCharWidth() {
+        function drawText(x, y, text, color = CONFIG.textColor) {
             ctx.font = `${CONFIG.fontSize}px monospace`;
-            charWidth = ctx.measureText('M').width;
+            ctx.fillStyle = `rgb(${color.join(',')})`;
+            ctx.fillText(text, x, y);
         }
 
-        // Call this after font changes
-        function updateFontMetrics() {
-            calculateCharWidth();
-            CONFIG.lineHeight = CONFIG.fontSize + 4;
-        }
-
-        // --- WebSocket Logic ---
-        function connectWebSocket() {
-            // Use window.location.host to ensure correct host for Render deployment
-            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${wsProtocol}//${window.location.host}`;
-            ws = new WebSocket(wsUrl);
-
-            ws.onopen = () => {
-                logMessage('🌐 WebSocket connected');
-                startHeartbeat(); // Start sending heartbeats
-            };
-
-            ws.onmessage = (event) => {
-                // Not expecting messages from server, but good practice to have
-                // console.log('WebSocket message from server:', event.data);
-            };
-
-            ws.onclose = (event) => {
-                logMessage(`🌐 WebSocket disconnected: Code ${event.code}, Reason: ${event.reason || 'N/A'}`);
-                stopHeartbeat(); // Stop heartbeats
-                // Attempt to reconnect if disconnection is not intentional
-                if (isStreaming) { // Only try to reconnect if we were actively streaming
-                    logMessage('🌐 Attempting to reconnect WebSocket...');
-                    setTimeout(connectWebSocket, CONFIG.wsReconnectInterval);
-                }
-            };
-
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                logMessage('🌐 WebSocket error occurred');
-            };
-        }
-
-        function startHeartbeat() {
-            stopHeartbeat(); // Ensure no duplicate timers
-            heartbeatTimer = setInterval(() => {
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ type: 'heartbeat' }));
-                    // console.log('Client: Sent heartbeat'); // Only for detailed debugging
-                }
-            }, CONFIG.heartbeatInterval);
-        }
-
-        function stopHeartbeat() {
-            if (heartbeatTimer) {
-                clearInterval(heartbeatTimer);
-                heartbeatTimer = null;
+        function drawCursor(x, y) {
+            if (showCursor) {
+                ctx.fillStyle = `rgb(${CONFIG.cursorColor.join(',')})`;
+                ctx.fillRect(x, y - CONFIG.fontSize + 2, 2, CONFIG.fontSize);
             }
         }
 
-        function sendFrame() {
-            if (ws && ws.readyState === WebSocket.OPEN && isStreaming) {
-                // Ensure canvas has content before trying to send
-                if (canvas.width > 0 && canvas.height > 0) {
-                    try {
-                        const frame = canvas.toDataURL('image/png').split(',')[1];
-                        ws.send(JSON.stringify({ type: 'frame', frame: frame }));
-                        currentFrame++;
-                        // console.log('Client: Sent frame to WebSocket. Frame count:', currentFrame); // ADDED LOG
-                    } catch (error) {
-                        console.error('Client: Error capturing or sending frame:', error); // ADDED LOG
-                        logMessage('Error sending frame to server');
-                    }
-                } else {
-                    console.warn('Client: Canvas dimensions are zero, cannot capture frame.'); // ADDED LOG
-                }
-            } else {
-                // console.warn('Client: WebSocket not open or not streaming, cannot send frame.'); // Too verbose
-            }
+        function startStream() {
+            if (isRunning) return;
+            
+            isRunning = true;
+            startTime = Date.now();
+            currentFrame = 0;
+            currentCycle = 0;
+            displayLines = [];
+            qaHistory = [];
+            currentLine = 0;
+            currentChar = 0;
+            currentQA = null;
+            waitingForAnswer = false;
+            
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('downloadBtn').disabled = false;
+            
+            updateStatus('Initializing neural pathways...');
+            logMessage('🧠 AI consciousness stream initiated');
+            
+            animate();
         }
 
-        // --- Streaming Control ---
-        async function startStream() {
-            if (isStreaming) {
-                logMessage('Stream already active.');
+        function stopStream() {
+            if (!isRunning) return;
+            
+            isRunning = false;
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            
+            updateStatus('Stream stopped');
+            logMessage(`🛑 Stream completed. ${currentCycle} cycles, ${currentFrame} frames`);
+        }
+
+        async function animate() {
+            if (!isRunning) return;
+            
+            const now = Date.now();
+            const elapsed = (now - startTime) / 1000;
+            
+            // Check if duration exceeded
+            if (elapsed > CONFIG.durationMinutes * 60) {
+                stopStream();
                 return;
             }
+            
+            // Clear canvas
+            clearCanvas();
+            
+            // Handle cursor blinking
+            if (now - lastCursorTime > CONFIG.cursorBlinkRate * 1000) {
+                showCursor = !showCursor;
+                lastCursorTime = now;
+            }
+            
+            // Generate new Q&A if needed
+            if (!currentQA && currentCycle < CONFIG.maxQACycles) {
+                await generateNewQA();
+            }
+            
+            // Handle text animation
+            if (currentQA && !waitingForAnswer) {
+                if (now - lastCharTime > CONFIG.charDelay * 1000) {
+                    animateText();
+                    lastCharTime = now;
+                }
+            }
+            
+            // Handle thinking indicator
+            if (isGenerating && CONFIG.showThinkingIndicator) {
+                const thinkingTime = (now - generationStartTime) / 1000;
+                if (thinkingTime > CONFIG.showThinkingAfter) {
+                    drawThinkingIndicator();
+                }
+            }
+            
+            // Draw all current lines
+            drawAllLines();
+            
+            // Draw cursor
+            if (currentQA && !waitingForAnswer) {
+                const cursorY = CONFIG.marginTop + (currentLine * CONFIG.lineHeight);
+                const cursorX = CONFIG.marginLeft + (currentChar * charWidth);
+                drawCursor(cursorX, cursorY);
+            }
+            
+            // Capture frame for YouTube streaming
+            captureFrameForYouTube();
+            
+            // Update counters
+            currentFrame++;
+            updateFrameCount(currentFrame);
+            updateCycleCount(currentCycle);
+            
+            animationId = requestAnimationFrame(animate);
+        }
 
+        async function generateNewQA() {
+            if (waitingForAnswer) return;
+            
+            waitingForAnswer = true;
+            updateStatus('Generating consciousness data...');
+            
             try {
-                // Connect WebSocket first
-                if (!ws || ws.readyState !== WebSocket.OPEN) {
-                    logMessage('Connecting WebSocket before starting stream...');
-                    connectWebSocket();
-                    // Give it a moment to connect
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    if (!ws || ws.readyState !== WebSocket.OPEN) {
-                        logMessage('Failed to connect WebSocket. Cannot start stream.');
-                        return;
-                    }
-                }
-
-                // Call server to start FFmpeg process
-                const response = await fetch('/api/start-stream', { method: 'POST' });
-                const data = await response.json();
-
-                if (data.success) {
-                    isStreaming = true;
-                    logMessage('🟢 Stream started! Sending frames...');
-                    if (streamInterval) clearInterval(streamInterval); // Clear any old interval
-                    streamInterval = setInterval(sendFrame, 1000 / CONFIG.fps); // Send frames at target FPS
+                let question;
+                if (currentCycle === 0) {
+                    question = await generateInitialQuestion();
                 } else {
-                    logMessage(`🔴 Failed to start stream: ${data.message}`);
+                    const lastQA = qaHistory[qaHistory.length - 1];
+                    question = await generateFollowupQuestion(lastQA.question, lastQA.answer);
                 }
+                
+                const answer = await generateAnswer(question);
+                
+                currentQA = { question, answer };
+                qaHistory.push(currentQA);
+                
+                // Prepare text for animation
+                const qText = `> ${question}`;
+                const aText = `${answer}`;
+                
+                const qLines = wrapText(qText, CONFIG.maxCharsPerLine);
+                const aLines = wrapText(aText, CONFIG.maxCharsPerLine);
+                
+                currentText = [...qLines, '', ...aLines, '', ''].join('\n');
+                currentChar = 0;
+                
+                waitingForAnswer = false;
+                updateStatus('Streaming consciousness...');
+                
             } catch (error) {
-                console.error('Error starting stream:', error);
-                logMessage(`🔴 Network error starting stream: ${error.message}`);
+                logMessage(`❌ Generation error: ${error.message}`);
+                waitingForAnswer = false;
+                currentQA = null;
             }
         }
 
-        async function stopStream() {
-            if (!isStreaming) {
-                logMessage('Stream is not active.');
+        function animateText() {
+            if (!currentText || currentChar >= currentText.length) {
+                // Finished current Q&A, move to next
+                currentCycle++;
+                currentQA = null;
+                currentLine += 2; // Add some space
+                
+                // Scroll if needed
+                if (currentLine * CONFIG.lineHeight > CONFIG.height - 100) {
+                    displayLines = displayLines.slice(5); // Remove top 5 lines
+                    currentLine = Math.max(0, currentLine - 5);
+                }
+                
                 return;
             }
+            
+            const char = currentText[currentChar];
+            
+            if (char === '\n') {
+                currentLine++;
+                currentChar++;
+                return;
+            }
+            
+            // Add character to display
+            if (!displayLines[currentLine]) {
+                displayLines[currentLine] = '';
+            }
+            
+            displayLines[currentLine] += char;
+            currentChar++;
+        }
 
-            try {
-                const response = await fetch('/api/stop-stream', { method: 'POST' });
-                const data = await response.json();
-
-                if (data.success) {
-                    isStreaming = false;
-                    if (streamInterval) clearInterval(streamInterval);
-                    streamInterval = null;
-                    logMessage('🛑 Stream stopped.');
-                } else {
-                    logMessage(`⚠️ Failed to stop stream: ${data.message}`);
+        function drawAllLines() {
+            for (let i = 0; i < displayLines.length; i++) {
+                if (displayLines[i]) {
+                    const y = CONFIG.marginTop + (i * CONFIG.lineHeight);
+                    drawText(CONFIG.marginLeft, y, displayLines[i]);
                 }
-            } catch (error) {
-                console.error('Error stopping stream:', error);
-                logMessage(`⚠️ Network error stopping stream: ${error.message}`);
-            } finally {
-                // Always stop client-side frame sending even if API fails
-                if (streamInterval) clearInterval(streamInterval);
-                streamInterval = null;
-                isStreaming = false;
             }
         }
 
-        // --- Utility Functions ---
+        function drawThinkingIndicator() {
+            const dots = '.'.repeat((Math.floor(Date.now() / 500) % 3) + 1);
+            const thinkingText = `Thinking${dots}`;
+            const y = CONFIG.marginTop + ((currentLine + 1) * CONFIG.lineHeight);
+            drawText(CONFIG.marginLeft, y, thinkingText, [100, 150, 100]);
+        }
+
         function downloadLog() {
-            const logText = systemLog.join('\n');
-            const qaText = qaHistory.join('\n');
-            const fullLog = `AI Consciousness Terminal Log\n\n` +
-                            `Generated: ${new Date().toISOString()}\n\n` +
-                            `Cycle: ${currentCycle}\n` +
-                            `Frames: ${currentFrame}\n\n` +
-                            `=== SYSTEM LOG ===\n${logText}\n\n` +
-                            `=== Q&A HISTORY ===\n${qaText}`;
+            const logText = textLog.join('\n');
+            const qaText = qaHistory.map(qa => `Q: ${qa.question}\nA: ${qa.answer}\n`).join('\n');
+            
+            const fullLog = `AI Consciousness Terminal Log
+Generated: ${new Date().toISOString()}
+Duration: ${CONFIG.durationMinutes} minutes
+Cycles: ${currentCycle}
+Frames: ${currentFrame}
+
+=== SYSTEM LOG ===
+${logText}
+
+=== Q&A HISTORY ===
+${qaText}`;
             
             const blob = new Blob([fullLog], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
@@ -381,25 +1033,24 @@
             }
         }
 
-        // --- Initialization ---
-        window.addEventListener('resize', resizeCanvas);
-        
-        // Initial setup
-        resizeCanvas();
-        connectWebSocket(); // Connect WebSocket on page load
+        // Initialize character width based on font
+        function calculateCharWidth() {
+            ctx.font = `${CONFIG.fontSize}px monospace`;
+            charWidth = ctx.measureText('M').width;
+        }
 
-        // Start content generation and drawing loop
-        setInterval(() => {
-            generateAIContent(); // Update AI content
-            drawTerminal();       // Redraw the terminal
-        }, CONFIG.updateInterval);
+        // Call this after font changes
+        function updateFontMetrics() {
+            calculateCharWidth();
+            CONFIG.lineHeight = CONFIG.fontSize + 4;
+        }
 
-        // Simulate initial AI content for display
-        logMessage('Initializing AI consciousness...');
-        logMessage('Establishing neural pathways...');
-        logMessage('System ready.');
-        generateAIContent(); // Initial content
-        drawTerminal();
+        // Initialize font metrics on start
+        setTimeout(() => {
+            if (ctx) {
+                updateFontMetrics();
+            }
+        }, 100);
     </script>
 </body>
 </html>
