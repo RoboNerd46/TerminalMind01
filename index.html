@@ -164,7 +164,7 @@
             color: #00ff41;
             font-family: 'Courier New', monospace;
             z-index: 2000;
-            display: none;
+            display: none; /* Hidden by default */
         }
 
         .config-panel h2 {
@@ -307,17 +307,17 @@
         <h2>🖥️ Terminal Configuration</h2>
         
         <div class="config-row">
-            <label>Stream Duration (minutes):</label>
+            <label for="durationInput">Stream Duration (minutes):</label>
             <input type="number" id="durationInput" value="5" min="1" max="60">
         </div>
         
         <div class="config-row">
-            <label>Q&A Cycles:</label>
+            <label for="cyclesInput">Q&A Cycles:</label>
             <input type="number" id="cyclesInput" value="15" min="5" max="50">
         </div>
         
         <div class="config-row">
-            <label>Typing Speed:</label>
+            <label for="speedInput">Typing Speed:</label>
             <select id="speedInput">
                 <option value="0.03">Very Fast</option>
                 <option value="0.06" selected>Fast</option>
@@ -328,12 +328,12 @@
         </div>
         
         <div class="config-row">
-            <label>Terminal Width (chars):</label>
+            <label for="widthInput">Terminal Width (chars):</label>
             <input type="number" id="widthInput" value="70" min="40" max="120">
         </div>
         
         <div class="config-row">
-            <label>Font Size:</label>
+            <label for="fontSizeInput">Font Size:</label>
             <select id="fontSizeInput">
                 <option value="12">Small</option>
                 <option value="16" selected>Medium</option>
@@ -343,17 +343,17 @@
         </div>
         
         <div class="config-row">
-            <label>Show Thinking Indicator:</label>
+            <label for="thinkingInput">Show Thinking Indicator:</label>
             <input type="checkbox" id="thinkingInput" checked>
         </div>
         
         <div class="config-row">
-            <label>YouTube Streaming:</label>
+            <label for="enableStreamingInput">YouTube Streaming:</label>
             <input type="checkbox" id="enableStreamingInput" checked>
         </div>
 
         <div class="config-row">
-            <label>Debug Mode:</label>
+            <label for="debugModeInput">Debug Mode:</label>
             <input type="checkbox" id="debugModeInput">
         </div>
         
@@ -364,45 +364,326 @@
     </div>
 
     <script>
-        // Placeholder for client-side JavaScript
-        // You'll need to add your JavaScript logic here to make the buttons interactive
-        // and handle the WebSocket communication, canvas rendering, etc.
-
-        // Example: Add a simple click listener to the config button
         document.addEventListener('DOMContentLoaded', () => {
+            // --- Get references to DOM elements ---
+            const statusSpan = document.getElementById('status');
+            const frameCountSpan = document.getElementById('frameCount');
+            const cycleCountSpan = document.getElementById('cycleCount');
+            const wsStatusSpan = document.getElementById('wsStatus');
+            const streamStatusSpan = document.getElementById('streamStatus');
+            const framesSentSpan = document.getElementById('framesSent');
+
+            // Control buttons
+            const testBtn = document.getElementById('testBtn');
             const configBtn = document.getElementById('configBtn');
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const streamBtn = document.getElementById('streamBtn');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+            // Config panel elements
             const configPanel = document.getElementById('configPanel');
             const saveConfigBtn = document.getElementById('saveConfigBtn');
             const cancelConfigBtn = document.getElementById('cancelConfigBtn');
+            const durationInput = document.getElementById('durationInput');
+            const cyclesInput = document.getElementById('cyclesInput');
+            const speedInput = document.getElementById('speedInput');
+            const widthInput = document.getElementById('widthInput');
+            const fontSizeInput = document.getElementById('fontSizeInput');
+            const thinkingInput = document.getElementById('thinkingInput');
+            const enableStreamingInput = document.getElementById('enableStreamingInput');
             const debugModeInput = document.getElementById('debugModeInput');
-            const debugInfo = document.getElementById('debugInfo');
 
+            // Debug info display
+            const debugInfo = document.getElementById('debugInfo');
+            const debugWS = document.getElementById('debugWS');
+            const debugFFmpeg = document.getElementById('debugFFmpeg');
+            const debugFPS = document.getElementById('debugFPS');
+            const debugBuffer = document.getElementById('debugBuffer');
+
+            // Canvas and context (for terminal display)
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            let terminalWidth = parseInt(widthInput.value); // Characters wide
+            let terminalHeight; // Characters tall, will be calculated
+            let fontSize = parseInt(fontSizeInput.value);
+            let charWidth, charHeight; // Pixel dimensions of a character
+
+            // --- WebSocket Setup ---
+            let ws;
+            const connectWebSocket = () => {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                // Adjust for Render.com's dynamic port, or use a hardcoded URL if needed for specific setup
+                // Render exposes the app on standard HTTP/S ports, and internally routes to your service's port.
+                // So, window.location.host should be sufficient.
+                const wsURL = `${protocol}//${window.location.host}`; 
+                ws = new WebSocket(wsURL);
+
+                ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    wsStatusSpan.textContent = 'Connected';
+                    wsStatusSpan.classList.add('connected');
+                    // Enable/disable buttons as appropriate on connection
+                    startBtn.disabled = false;
+                    testBtn.disabled = false;
+                    // stopBtn.disabled = true; // Still disabled until stream starts
+                    // streamBtn.disabled = false; // Enable if YouTube streaming is ready
+                };
+
+                ws.onmessage = (event) => {
+                    // console.log('Received:', event.data);
+                    // Handle incoming messages from the server (e.g., terminal output, status updates)
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'log') {
+                        appendLog(data.message);
+                    } else if (data.type === 'status') {
+                        statusSpan.textContent = data.message;
+                    } else if (data.type === 'frameUpdate') {
+                        frameCountSpan.textContent = data.frameCount;
+                        framesSentSpan.textContent = data.framesSent; // If server sends frames sent count
+                    } else if (data.type === 'cycleUpdate') {
+                        cycleCountSpan.textContent = data.cycleCount;
+                    } else if (data.type === 'streamStatus') {
+                        streamStatusSpan.textContent = data.message;
+                        if (data.message === 'Live') {
+                            startBtn.disabled = true;
+                            stopBtn.disabled = false;
+                            streamBtn.disabled = true;
+                        } else if (data.message === 'Off' || data.message === 'Error') {
+                            startBtn.disabled = false;
+                            stopBtn.disabled = true;
+                            streamBtn.disabled = false;
+                        }
+                    }
+                    // For debug info
+                    if (data.debug) {
+                        debugWS.textContent = data.debug.ws || debugWS.textContent;
+                        debugFFmpeg.textContent = data.debug.ffmpeg || debugFFmpeg.textContent;
+                        debugFPS.textContent = data.debug.fps || debugFPS.textContent;
+                        debugBuffer.textContent = data.debug.buffer || debugBuffer.textContent;
+                    }
+                    if (data.terminalContent) {
+                        drawTerminal(data.terminalContent);
+                    }
+                };
+
+                ws.onclose = () => {
+                    console.log('WebSocket disconnected. Attempting to reconnect...');
+                    wsStatusSpan.textContent = 'Disconnected';
+                    wsStatusSpan.classList.remove('connected');
+                    startBtn.disabled = true;
+                    stopBtn.disabled = true;
+                    testBtn.disabled = true;
+                    streamBtn.disabled = true;
+                    setTimeout(connectWebSocket, 3000); // Attempt to reconnect every 3 seconds
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    wsStatusSpan.textContent = 'Error';
+                    wsStatusSpan.classList.remove('connected');
+                };
+            };
+
+            // --- Terminal Drawing Logic ---
+            const resizeCanvas = () => {
+                const terminalDiv = document.getElementById('terminal');
+                canvas.width = terminalDiv.clientWidth;
+                canvas.height = terminalDiv.clientHeight;
+
+                // Set font properties to measure character size
+                ctx.font = `${fontSize}px 'Courier New', monospace`;
+                const metrics = ctx.measureText('M'); // 'M' is generally a good average width character
+                charWidth = metrics.width;
+                charHeight = fontSize; // Assuming font size is approximately char height
+
+                terminalWidth = Math.floor(canvas.width / charWidth);
+                terminalHeight = Math.floor(canvas.height / charHeight);
+
+                // For testing, update width input in config panel if it changes significantly
+                // widthInput.value = terminalWidth; 
+            };
+
+            const drawTerminal = (lines) => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#00ff41'; // Green text
+                ctx.font = `${fontSize}px 'Courier New', monospace`;
+
+                lines.forEach((line, index) => {
+                    ctx.fillText(line, 0, (index + 1) * charHeight);
+                });
+            };
+
+            // --- Log Display ---
+            const logDisplay = document.getElementById('logDisplay');
+            const appendLog = (message) => {
+                const div = document.createElement('div');
+                div.textContent = message;
+                logDisplay.appendChild(div);
+                logDisplay.scrollTop = logDisplay.scrollHeight; // Scroll to bottom
+            };
+
+            // --- Initial setup calls ---
+            resizeCanvas(); // Set initial canvas size and char dimensions
+            window.addEventListener('resize', resizeCanvas); // Adjust canvas on window resize
+            connectWebSocket(); // Establish WebSocket connection
+
+            // --- Button Event Listeners ---
+
+            // Config Button
             configBtn.addEventListener('click', () => {
                 configPanel.style.display = 'block';
+                // Load current values into config inputs
+                durationInput.value = localStorage.getItem('duration') || '5';
+                cyclesInput.value = localStorage.getItem('cycles') || '15';
+                speedInput.value = localStorage.getItem('speed') || '0.06';
+                widthInput.value = localStorage.getItem('terminalWidth') || '70';
+                fontSizeInput.value = localStorage.getItem('fontSize') || '16';
+                thinkingInput.checked = localStorage.getItem('showThinking') === 'true';
+                enableStreamingInput.checked = localStorage.getItem('enableStreaming') === 'true';
+                debugModeInput.checked = localStorage.getItem('debugMode') === 'true';
             });
 
+            // Save Config Button
             saveConfigBtn.addEventListener('click', () => {
                 configPanel.style.display = 'none';
-                // Implement logic to save config values here
-                console.log('Config saved!');
-            });
+                localStorage.setItem('duration', durationInput.value);
+                localStorage.setItem('cycles', cyclesInput.value);
+                localStorage.setItem('speed', speedInput.value);
+                localStorage.setItem('terminalWidth', widthInput.value);
+                localStorage.setItem('fontSize', fontSizeInput.value);
+                localStorage.setItem('showThinking', thinkingInput.checked);
+                localStorage.setItem('enableStreaming', enableStreamingInput.checked);
+                localStorage.setItem('debugMode', debugModeInput.checked);
 
-            cancelConfigBtn.addEventListener('click', () => {
-                configPanel.style.display = 'none';
-                console.log('Config cancelled.');
-            });
+                // Apply changes instantly
+                fontSize = parseInt(fontSizeInput.value);
+                resizeCanvas(); // Recalculate based on new font size
+                terminalWidth = parseInt(widthInput.value); // Apply new terminal width
 
-            debugModeInput.addEventListener('change', () => {
                 if (debugModeInput.checked) {
                     debugInfo.style.display = 'block';
                 } else {
                     debugInfo.style.display = 'none';
                 }
+
+                console.log('Config saved and applied!');
+                appendLog('Configuration updated.');
+                // Optionally send config to server if needed
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'configUpdate',
+                        duration: parseInt(durationInput.value),
+                        cycles: parseInt(cyclesInput.value),
+                        typingSpeed: parseFloat(speedInput.value),
+                        terminalWidth: parseInt(widthInput.value),
+                        fontSize: parseInt(fontSizeInput.value),
+                        showThinking: thinkingInput.checked,
+                        enableStreaming: enableStreamingInput.checked,
+                        debugMode: debugModeInput.checked
+                    }));
+                }
             });
 
-            // You'll need a comprehensive client-side script for the full functionality.
-            // This includes WebSocket connection, canvas drawing, streaming controls, etc.
-            // This is just to demonstrate that buttons *can* be clickable.
+            // Cancel Config Button
+            cancelConfigBtn.addEventListener('click', () => {
+                configPanel.style.display = 'none';
+                console.log('Config cancelled.');
+            });
+
+            // Test FFmpeg Button
+            testBtn.addEventListener('click', async () => {
+                appendLog('Testing FFmpeg...');
+                try {
+                    const response = await fetch('/api/test-ffmpeg');
+                    const data = await response.text();
+                    appendLog(`FFmpeg Test: ${data}`);
+                    console.log(`FFmpeg Test: ${data}`);
+                } catch (error) {
+                    appendLog(`FFmpeg Test Error: ${error.message}`);
+                    console.error('FFmpeg Test Error:', error);
+                }
+            });
+
+            // Start Stream Button
+            startBtn.addEventListener('click', () => {
+                appendLog('Initiating AI Consciousness stream...');
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'startStream' }));
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                    streamBtn.disabled = true; // Disable YouTube stream until main stream is ready/live
+                } else {
+                    appendLog('WebSocket not connected. Cannot start stream.');
+                    console.warn('WebSocket not connected.');
+                }
+            });
+
+            // Stop Button
+            stopBtn.addEventListener('click', () => {
+                appendLog('Stopping AI Consciousness stream...');
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'stopStream' }));
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    streamBtn.disabled = false; // Re-enable YouTube stream button
+                } else {
+                    appendLog('WebSocket not connected. Cannot stop stream.');
+                    console.warn('WebSocket not connected.');
+                }
+            });
+
+            // Start YouTube Stream Button
+            streamBtn.addEventListener('click', () => {
+                appendLog('Starting YouTube live stream...');
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'startYouTubeStream' }));
+                    streamBtn.disabled = true; // Disable while streaming
+                } else {
+                    appendLog('WebSocket not connected. Cannot start YouTube stream.');
+                    console.warn('WebSocket not connected.');
+                }
+            });
+
+            // Download Log Button
+            downloadBtn.addEventListener('click', () => {
+                appendLog('Preparing log for download...');
+                const logContent = logDisplay.innerText;
+                const blob = new Blob([logContent], { type: 'text/plain' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'ai_consciousness_log.txt';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(a.href);
+                appendLog('Log downloaded.');
+            });
+
+            // Fullscreen Button
+            fullscreenBtn.addEventListener('click', () => {
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                    appendLog('Exited fullscreen mode.');
+                } else {
+                    document.documentElement.requestFullscreen().then(() => {
+                        appendLog('Entered fullscreen mode.');
+                    }).catch(err => {
+                        appendLog(`Error entering fullscreen: ${err.message}`);
+                        console.error(`Error entering fullscreen: ${err}`);
+                    });
+                }
+            });
+
+            // Initialize debug mode display based on saved config (or default)
+            if (localStorage.getItem('debugMode') === 'true') {
+                debugModeInput.checked = true;
+                debugInfo.style.display = 'block';
+            } else {
+                debugModeInput.checked = false;
+                debugInfo.style.display = 'none';
+            }
         });
     </script>
 </body>
