@@ -4,9 +4,9 @@ const path = require('path');
 
 // --- Configuration ---
 // Make sure to set YOUTUBE_STREAM_KEY in your Render environment variables!
-// IMPORTANT: Double-check your your actual YouTube RTMP URL.
-// The provided URL 'rtmp://a.rtmp.youtube.com/live2' is unusual, but I will continue to use it as provided.
-const YOUTUBE_RTMP_URL = 'rtmp://a.rtmp.youtube.com/live2';
+// CORRECTED: Standard YouTube RTMP URL. If this is still incorrect,
+// you must provide the exact Stream URL from your YouTube Live Dashboard.
+const YOUTUBE_RTMP_URL = 'rtmp://a.rtmp.youtube.com/live2'; // Or rtmp://b.rtmp.youtube.com/live2
 const YOUTUBE_STREAM_KEY = process.env.YOUTUBE_STREAM_KEY; // Your key from Render env vars
 
 if (!YOUTUBE_STREAM_KEY) {
@@ -27,12 +27,9 @@ const LINE_HEIGHT = 28; // Adjust based on font size for vertical spacing
 const TEXT_X_OFFSET = 10;
 const TEXT_Y_OFFSET_START = 10;
 const MAX_SCREEN_LINES = Math.floor((VIDEO_HEIGHT - TEXT_Y_OFFSET_START) / LINE_HEIGHT);
-const TYPING_SPEED_MS_PER_CHAR = 50; // Delay between characters for simulated typing
+const TYPING_SPEED_MS_PER_CHAR = 80; // Increased: Delay between characters for simulated typing (was 50)
 
 // Flicker effect (using alpha modulation for text color)
-// This creates a subtle, rapid brightness fluctuation of the text.
-// The expression `0.9 + 0.1*sin(100*PI*t)` makes alpha oscillate between 0.8 and 1.0 at 50Hz.
-// This string will now be used for the 'alpha' option directly.
 const FLICKER_EFFECT_ALPHA = "0.9 + 0.1*sin(100*PI*t)";
 
 // Temporary file to store current screen content for FFmpeg to read
@@ -97,7 +94,7 @@ async function typeMessageToScreen(prefix, message) {
             updateScreenFile(); // Update file after each character
             await new Promise(resolve => setTimeout(resolve, TYPING_SPEED_MS_PER_CHAR));
         }
-        await new Promise(resolve => setTimeout(resolve, TYPING_SPEED_MS_PER_CHAR * 5)); // Pause slightly at end of line
+        await new Promise(resolve => setTimeout(resolve, TYPING_SPEED_MS_PER_CHAR * 10)); // Increased pause slightly at end of line (was 5)
     }
 }
 
@@ -212,7 +209,10 @@ async function startStreaming() {
         STREAM_TARGET
     ];
 
-    ffmpegProcess = spawn('ffmpeg', FFMPEG_COMMAND_ARGS);
+    ffmpegProcess = spawn('ffmpeg', FFMPEG_COMMAND_ARGS, {
+        stdio: ['ignore', 'pipe', 'pipe'] // Explicitly ignore stdin for FFmpeg
+    });
+    ffmpegProcess.unref(); // Allow Node.js event loop to exit even if FFmpeg is still running (good practice)
 
     // Log FFmpeg's stdout and stderr for debugging
     ffmpegProcess.stdout.on('data', data => {
@@ -235,6 +235,22 @@ async function startStreaming() {
 
     ffmpegProcess.on('error', err => {
         console.error('Failed to start FFmpeg process:', err);
+    });
+
+    // Handle process exit gracefully (e.g., if Render stops the service)
+    process.on('SIGINT', () => {
+        console.log('Received SIGINT. Terminating FFmpeg process...');
+        if (ffmpegProcess) {
+            ffmpegProcess.kill('SIGTERM'); // Send SIGTERM to FFmpeg
+        }
+        process.exit(0);
+    });
+    process.on('SIGTERM', () => {
+        console.log('Received SIGTERM. Terminating FFmpeg process...');
+        if (ffmpegProcess) {
+            ffmpegProcess.kill('SIGTERM'); // Send SIGTERM to FFmpeg
+        }
+        process.exit(0);
     });
 
     console.log('FFmpeg stream process started.');
@@ -263,7 +279,7 @@ async function startStreaming() {
             // 1. LLM formulates the next question based on current context
             console.log("AI is formulating a question...");
             await typeMessageToScreen("AI Processing: ", "Formulating inquiry into idea-space...");
-            await new Promise(resolve => setTimeout(resolve, 2000)); // Brief pause
+            await new Promise(resolve => setTimeout(resolve, 3000)); // Increased brief pause (was 2000)
             
             question = await callLLM7IO(
                 `Based on the previous interaction and the current thought context: "${currentThoughtContext}", ` +
@@ -271,12 +287,12 @@ async function startStreaming() {
             );
             await clearScreen();
             await typeMessageToScreen("AI_QUERY>> ", question);
-            await new Promise(resolve => setTimeout(resolve, 8000)); // Pause for reading
+            await new Promise(resolve => setTimeout(resolve, 15000)); // Increased pause for reading (was 8000)
 
             // 2. LLM formulates the answer to its own question
             console.log("AI is formulating an answer...");
             await typeMessageToScreen("AI Processing: ", "Synthesizing response...");
-            await new Promise(resolve => setTimeout(resolve, 2000)); // Brief pause
+            await new Promise(resolve => setTimeout(resolve, 3000)); // Increased brief pause (was 2000)
 
             answer = await callLLM7IO(
                 `As an introspective AI, provide a comprehensive and nuanced answer to the following question, ` +
@@ -284,14 +300,14 @@ async function startStreaming() {
             );
             await clearScreen();
             await typeMessageToScreen("AI_RESPONSE>> ", answer);
-            await new Promise(resolve => setTimeout(resolve, 15000)); // Longer pause for reading
+            await new Promise(resolve => setTimeout(resolve, 25000)); // Increased longer pause for reading (was 15000)
 
             // 3. Update context for the next iteration
             currentThoughtContext = `Previous question: "${question}" | Previous answer: "${answer}". The AI now reflects on this exchange.`;
 
             await clearScreen();
             await typeMessageToScreen("SYSTEM: ", "Reflecting on discourse... Preparing next query.");
-            await new Promise(resolve => setTimeout(resolve, 5000)); // Pause before next loop
+            await new Promise(resolve => setTimeout(resolve, 8000)); // Increased pause before next loop (was 5000)
         }
     }
 
