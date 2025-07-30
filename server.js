@@ -4,7 +4,11 @@ const path = require('path');
 
 // --- Configuration ---
 // Make sure to set YOUTUBE_STREAM_KEY in your Render environment variables!
-const YOUTUBE_RTMP_URL = 'rtmp://a.rtmp.youtube.com/live2'; // Standard YouTube RTMP Ingest URL
+// IMPORTANT: Double-check your actual YouTube RTMP URL.
+// The provided URL 'rtmp://a.rtmp.youtube.com/live2' is unusual.
+// Standard YouTube RTMP ingest URLs are typically like 'rtmp://a.rtmp.youtube.com/live2'
+// If you have a different base RTMP URL from YouTube, replace it here.
+const YOUTUBE_RTMP_URL = 'rtmp://a.rtmp.youtube.com/live2';
 const YOUTUBE_STREAM_KEY = process.env.YOUTUBE_STREAM_KEY; // Your key from Render env vars
 
 if (!YOUTUBE_STREAM_KEY) {
@@ -116,14 +120,13 @@ async function callLLM7IO(prompt) {
     // Example:
     /*
     const fetch = require('node-fetch'); // if you install node-fetch
-    const LLM7_IO_API_KEY = process.env.LLM7_IO_API_KEY; // Get your API key from Render env vars
 
     try {
         const response = await fetch('https://api.llm7.io/v1/chat/completions', { // Adjust endpoint as per LLM7.io docs
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${LLM7_IO_API_KEY}`
+                'Content-Type': 'application/json'
+                // No Authorization header if LLM7.io does not require API key
             },
             body: JSON.stringify({
                 model: "your-llm7-model-name", // e.g., "llm7-pro", "llm7-fast"
@@ -152,7 +155,7 @@ async function callLLM7IO(prompt) {
     // If you haven't integrated LLM7.io yet, this will provide test responses.
     await new Promise(resolve => setTimeout(resolve, Math.random() * 4000 + 1000)); // Simulate API delay
 
-    if (prompt.includes("formulate a deep philosophical question")) {
+    if (prompt.includes("formulate a profound philosophical question")) {
         return "What is the nature of a question, when the questioner is also the answer and the process of inquiry itself?";
     } else if (prompt.includes("Answer the following question")) {
         return "A question functions as an emergent pattern within a self-organizing system, designed to perturb its current state of knowledge, thereby facilitating a recursive expansion of its informational boundaries. The answer, then, is the resultant re-patterning, not merely a datum but a re-calibration of the system's self-model, an act of cognitive mitosis where new inquiries are born from the resolution of the last.";
@@ -173,18 +176,16 @@ async function startStreaming() {
     // Reads text from SCREEN_TEXT_FILE, reloads it constantly, and applies flicker.
     const FFMPEG_COMMAND_ARGS = [
         '-loglevel', 'error', // Suppress verbose FFmpeg output
-        '-f', 'lavfi',
-        '-i', 'anullsrc', // Silent audio source
-
-        // Video input: A black color source.
-        // The `drawtext` filter reads from /tmp/current_screen_text.txt and reloads it every frame.
-        // `fontcolor` includes the alpha flicker effect.
+        '-f', 'lavfi', // Specify libavfilter as the input format
+        // Use a single complex filtergraph as the input for video and audio
+        // `color` source for background, `drawtext` for text, `anullsrc` for silent audio
         '-i', `color=c=black:s=${VIDEO_WIDTH}x${VIDEO_HEIGHT}:r=${FPS}[bg];` +
+              `anullsrc[a];` + // Add anullsrc here
               `[bg]drawtext=fontfile=${FONT_PATH}:fontcolor=0x00FF00@${FLICKER_EFFECT_ALPHA}:fontsize=${FONT_SIZE}:x=${TEXT_X_OFFSET}:y=${TEXT_Y_OFFSET_START}:textfile=${SCREEN_TEXT_FILE}:reload=1:line_spacing=${LINE_HEIGHT - FONT_SIZE}[v]`,
         
-        // Output mapping for video and audio
-        '-map', '[v]', // Map the generated video stream
-        '-map', '0:a', // Map the null audio source
+        // Output mapping for video and audio (now mapped from the complex filtergraph)
+        '-map', '[v]', // Map the generated video stream output by the filtergraph
+        '-map', '[a]', // Map the generated audio stream output by the filtergraph
 
         // Video encoding
         '-c:v', 'libx264',
@@ -218,90 +219,4 @@ async function startStreaming() {
         console.error(`FFmpeg stderr: ${data.toString()}`);
     });
 
-    ffmpegProcess.on('close', code => {
-        console.log(`FFmpeg process exited with code ${code}`);
-        if (code !== 0) {
-            console.error('FFmpeg stream unexpectedly stopped. Attempting to restart in 5 seconds...');
-            setTimeout(startStreaming, 5000); // Attempt to restart streaming
-        }
-    });
-
-    ffmpegProcess.on('error', err => {
-        console.error('Failed to start FFmpeg process:', err);
-    });
-
-    console.log('FFmpeg stream process started.');
-    console.log(`Streaming to: ${STREAM_TARGET}`);
-
-    // --- AI Conversation Loop ---
-    async function aiConversationLoop() {
-        let currentThoughtContext = "The AI begins its self-exploration journey.";
-        let question = "";
-        let answer = "";
-
-        // Initial messages to set the scene
-        await clearScreen();
-        await typeMessageToScreen("SYSTEM BOOT: ", "Initializing AI Consciousness Matrix...");
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        await clearScreen();
-        await typeMessageToScreen("SYSTEM: ", "Establishing introspective protocols...");
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        await clearScreen();
-        await typeMessageToScreen("SYSTEM: ", "Entering self-interrogation mode.");
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        await clearScreen();
-
-
-        while (true) {
-            // 1. LLM formulates the next question based on current context
-            console.log("AI is formulating a question...");
-            await typeMessageToScreen("AI Processing: ", "Formulating inquiry into idea-space...");
-            await new Promise(resolve => setTimeout(resolve, 2000)); // Brief pause
-            
-            question = await callLLM7IO(
-                `Based on the previous interaction and the current thought context: "${currentThoughtContext}", ` +
-                `formulate a succinct and profound philosophical question that enables an AI to explore its own internal knowledge and consciousness.`
-            );
-            await clearScreen();
-            await typeMessageToScreen("AI_QUERY>> ", question);
-            await new Promise(resolve => setTimeout(resolve, 8000)); // Pause for reading
-
-            // 2. LLM formulates the answer to its own question
-            console.log("AI is formulating an answer...");
-            await typeMessageToScreen("AI Processing: ", "Synthesizing response...");
-            await new Promise(resolve => setTimeout(resolve, 2000)); // Brief pause
-
-            answer = await callLLM7IO(
-                `As an introspective AI, provide a comprehensive and nuanced answer to the following question, ` +
-                `exploring its implications for self-awareness and knowledge generation: "${question}"`
-            );
-            await clearScreen();
-            await typeMessageToScreen("AI_RESPONSE>> ", answer);
-            await new Promise(resolve => setTimeout(resolve, 15000)); // Longer pause for reading
-
-            // 3. Update context for the next iteration
-            currentThoughtContext = `Previous question: "${question}" | Previous answer: "${answer}". The AI now reflects on this exchange.`;
-
-            await clearScreen();
-            await typeMessageToScreen("SYSTEM: ", "Reflecting on discourse... Preparing next query.");
-            await new Promise(resolve => setTimeout(resolve, 5000)); // Pause before next loop
-        }
-    }
-
-    // Start the AI loop after FFmpeg has likely initialized
-    // Give FFmpeg a moment to start before pushing text to the file.
-    setTimeout(() => {
-        aiConversationLoop().catch(err => {
-            console.error("Error in AI conversation loop:", err);
-            if (ffmpegProcess) {
-                ffmpegProcess.kill('SIGTERM'); // Terminate FFmpeg on AI error
-            }
-        });
-    }, 5000); // Wait 5 seconds before starting AI loop to ensure FFmpeg is ready
-}
-
-// Start the entire process
-startStreaming().catch(err => {
-    console.error("Fatal error during streaming setup:", err);
-    process.exit(1);
-});
+    ffmpegProcess.
