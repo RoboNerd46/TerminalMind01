@@ -17,7 +17,6 @@
   "license": "ISC",
   "dependencies": {
     "ws": "^8.16.0"
-    // If you plan to use 'node-fetch' for the LLM7.io API, add it like this:
-    // "node-fetch": "^3.3.2"
+    
   }
 }
