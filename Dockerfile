@@ -4,9 +4,11 @@ FROM node:20-alpine
 # Set the working directory inside the container
 WORKDIR /usr/src/app
 
-# Install FFmpeg and its dependencies
-# 'build-base' for compilation tools, 'linux-headers' for some dependencies
+# Install FFmpeg and its dependencies, including fonts for drawtext
+# font-dejavu is a common choice for monospace fonts on Alpine
 RUN apk add --no-cache ffmpeg build-base linux-headers \
+    font-dejavu \
+    # You might consider 'font-terminus' or 'font-noto-cjk' if DejaVu isn't your preference
     && rm -rf /var/cache/apk/*
 
 # Copy package.json and package-lock.json first to leverage Docker cache
