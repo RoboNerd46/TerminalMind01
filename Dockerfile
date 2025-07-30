@@ -1,33 +1,25 @@
-# Use a Node.js 18 image with Debian Bullseye slim, which is a good base
-# for smaller images and often compatible with systems that require FFmpeg.
-FROM node:18-bullseye-slim
-
-# Install FFmpeg and other necessary packages
-# ffmpeg is essential for video streaming.
-# libx264-dev provides development files for H.264 encoding with x264.
-# procps contains utilities like ps, which might be useful for monitoring processes.
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    libx264-dev \
-    procps \
-    --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
+# Use an official Node.js runtime as the base image
+FROM node:18-alpine # You can choose a specific Node.js version, e.g., node:20-alpine or node:lts-alpine
 
 # Set the working directory in the container
 WORKDIR /usr/src/app
 
-# Copy package.json and package-lock.json (if available)
-# This allows caching of dependencies
+# Copy package.json and package-lock.json to the working directory first
+# This is an optimization: if your dependencies don't change, Docker can use
+# a cached layer for npm install, speeding up subsequent builds.
 COPY package*.json ./
 
 # Install Node.js dependencies
+# This command will read package.json and install 'express', 'ws', 'axios', 'dotenv'
 RUN npm install
 
-# Copy the rest of the application code
+# Copy the rest of your application code to the working directory
+# This includes server.js, and your 'public' folder (containing index.html, etc.)
 COPY . .
 
-# Expose the port your app runs on
-EXPOSE 3000
+# Expose the port your app runs on. This should match the PORT your server listens on.
+# Your server.js defaults to 10000.
+EXPOSE 10000
 
-# Command to run the application
+# Command to run the application when the container starts
 CMD [ "node", "server.js" ]
