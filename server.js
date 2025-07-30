@@ -6,7 +6,7 @@ const path = require('path');
 // Make sure to set YOUTUBE_STREAM_KEY in your Render environment variables!
 // CORRECTED: Standard YouTube RTMP URL. If this is still incorrect,
 // you must provide the exact Stream URL from your YouTube Live Dashboard.
-const YOUTUBE_RTMP_URL = 'rtmp://http://googleusercontent.com/youtube.com/live2'; // OR 'rtmp://a.rtmp.youtube.com/live2' or 'rtmp://b.rtmp.youtube.com/live2'
+const YOUTUBE_RTMP_URL = 'rtmp://a.rtmp.youtube.com/live2'; // OR 'rtmp://a.rtmp.youtube.com/live2' or 'rtmp://b.rtmp.youtube.com/live2'
 const YOUTUBE_STREAM_KEY = process.env.YOUTUBE_STREAM_KEY; // Your key from Render env vars
 
 if (!YOUTUBE_STREAM_KEY) {
