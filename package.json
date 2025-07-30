@@ -1,13 +1,19 @@
 {
-  "name": "your-app-name",
+  "name": "ai-consciousness-terminal",
   "version": "1.0.0",
-  "description": "AI Stream of Consciousness Terminal",
+  "description": "AI Stream of Consciousness Terminal with LLM7.io integration",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": [
+    "AI",
+    "terminal",
+    "websocket",
+    "node.js",
+    "LLM"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
