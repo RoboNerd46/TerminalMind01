@@ -1,6 +1,3 @@
-Here is the corrected `server.js` file with all smart quotes replaced by straight quotes:
-
-```javascript
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
@@ -367,4 +364,3 @@ console.log('HTTP server closed.');
 process.exit(0);
 });
 });
-```
