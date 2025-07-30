@@ -4,11 +4,12 @@ FROM node:20-alpine
 # Set the working directory inside the container
 WORKDIR /usr/src/app
 
+# Install FFmpeg and its dependencies
+# 'build-base' for compilation tools, 'linux-headers' for some dependencies
+RUN apk add --no-cache ffmpeg build-base linux-headers \
+    && rm -rf /var/cache/apk/*
+
 # Copy package.json and package-lock.json first to leverage Docker cache
-# If these files don't change, npm install step will be cached
-# Note: With 'npm install' below, package-lock.json will be generated/updated
-# if it's not committed, but copying it first can still help with caching
-# if it *is* committed or if you decide to commit it later.
 COPY package*.json ./
 
 # Install dependencies using 'npm install'.
