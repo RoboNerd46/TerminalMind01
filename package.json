@@ -1,25 +1,28 @@
 {
   "name": "ai-consciousness-terminal",
   "version": "1.0.0",
-  "description": "286-era AI Stream of Consciousness with YouTube streaming",
+  "description": "Server for AI Consciousness Terminal, handling WebSocket communication and YouTube live streaming via FFmpeg.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
-    "build": "echo 'No build step required'"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "keywords": [
+    "node.js",
+    "express",
+    "websocket",
+    "ffmpeg",
+    "youtube-live",
+    "streaming"
+  ],
+  "author": "Your Name or Company Name",
+  "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2",
-    "ws": "^8.14.2"
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "ws": "^8.18.0"
   },
   "engines": {
-    "node": ">=16.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git"
-  },
-  "keywords": ["ai", "terminal", "consciousness", "286", "retro", "youtube", "streaming"],
-  "author": "Your Name",
-  "license": "MIT"
+    "node": "18.x"
+  }
 }
