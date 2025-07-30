@@ -6,11 +6,16 @@ WORKDIR /usr/src/app
 
 # Copy package.json and package-lock.json first to leverage Docker cache
 # If these files don't change, npm install step will be cached
+# Note: With 'npm install' below, package-lock.json will be generated/updated
+# if it's not committed, but copying it first can still help with caching
+# if it *is* committed or if you decide to commit it later.
 COPY package*.json ./
 
-# Install dependencies. 'npm ci' is preferred for CI/CD as it uses package-lock.json strictly.
+# Install dependencies using 'npm install'.
+# This command will generate package-lock.json if it doesn't exist,
+# or update it based on package.json.
 # '--omit=dev' ensures only production dependencies are installed, making the image smaller.
-RUN npm ci --omit=dev 
+RUN npm install --omit=dev 
 
 # Copy the rest of your application code
 # This includes server.js and the entire 'public' directory
