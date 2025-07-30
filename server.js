@@ -4,9 +4,7 @@ const path = require('path');
 
 // --- Configuration ---
 // Make sure to set YOUTUBE_STREAM_KEY in your Render environment variables!
-// CORRECTED: Standard YouTube RTMP URL. If this is still incorrect,
-// you must provide the exact Stream URL from your YouTube Live Dashboard.
-const YOUTUBE_RTMP_URL = 'rtmp://a.rtmp.youtube.com/live2'; // This is the most common one. Verify this against your YouTube Live Dashboard.
+const YOUTUBE_RTMP_URL = 'rtmp://a.rtmp.youtube.com/live2'; // Make sure this is the EXACT raw URL from your YouTube Live Dashboard
 const YOUTUBE_STREAM_KEY = process.env.YOUTUBE_STREAM_KEY; // Your key from Render env vars
 
 if (!YOUTUBE_STREAM_KEY) {
@@ -24,13 +22,21 @@ const FPS = 30; // Frames per second
 const FONT_PATH = '/usr/share/fonts/dejavu/DejaVuSansMono.ttf'; // Font installed in Dockerfile
 const FONT_SIZE = 24;
 const LINE_HEIGHT = 28; // Adjust based on font size for vertical spacing
-const TEXT_X_OFFSET = 10;
-const TEXT_Y_OFFSET_START = 10;
-const MAX_SCREEN_LINES = Math.floor((VIDEO_HEIGHT - TEXT_Y_OFFSET_START) / LINE_HEIGHT);
-const TYPING_SPEED_MS_PER_CHAR = 80; // Increased: Delay between characters for simulated typing
+
+// Adjust these offsets to position text *within* your terminal frame image
+// You'll need to measure these based on your `terminal_frame.png`
+const TEXT_X_OFFSET = 60; // Example: Offset from left edge of video to start text
+const TEXT_Y_OFFSET_START = 80; // Example: Offset from top edge of video to start text
+
+const MAX_SCREEN_LINES = Math.floor((VIDEO_HEIGHT - TEXT_Y_OFFSET_START - 60) / LINE_HEIGHT); // Adjusted for bottom margin of frame
+const TYPING_SPEED_MS_PER_CHAR = 80; // Delay between characters for simulated typing
 
 // Flicker effect (using alpha modulation for text color)
 const FLICKER_EFFECT_ALPHA = "0.9 + 0.1*sin(100*PI*t)";
+const FONT_COLOR = '0x00FF00'; // Green color
+
+// Path to your transparent terminal frame image
+const TERMINAL_FRAME_IMAGE_PATH = path.join(__dirname, 'terminal_frame.png'); // Assuming 'terminal_frame.png' is in the same directory as server.js
 
 // Temporary file to store current screen content for FFmpeg to read
 const SCREEN_TEXT_FILE = '/tmp/current_screen_text.txt';
@@ -69,7 +75,6 @@ function wordWrap(text, maxLength) {
 
 // Writes the current screen content to a temporary file for FFmpeg
 function updateScreenFile() {
-    // Join lines, ensure no empty lines at the end if the last line is full
     const textToWrite = currentScreenContent.join('\n');
     try {
         fs.writeFileSync(SCREEN_TEXT_FILE, textToWrite, { encoding: 'utf8' });
@@ -80,7 +85,13 @@ function updateScreenFile() {
 
 // Simulates typing a message to the screen buffer
 async function typeMessageToScreen(prefix, message) {
-    const wrappedLines = wordWrap(`${prefix}${message}`, Math.floor((VIDEO_WIDTH - TEXT_X_OFFSET * 2) / (FONT_SIZE * 0.6))); // Adjust 0.6 for monospace approx. char width
+    // Calculate max_length based on the *actual* available width within the frame
+    // This requires knowing the inner width of your terminal frame image.
+    // For now, an approximation based on current offsets:
+    const approxInnerWidth = VIDEO_WIDTH - (TEXT_X_OFFSET * 2);
+    const wrapLength = Math.floor(approxInnerWidth / (FONT_SIZE * 0.6)); // Adjust 0.6 for monospace approx. char width
+
+    const wrappedLines = wordWrap(`${prefix}${message}`, wrapLength);
 
     for (const line of wrappedLines) {
         if (currentScreenContent.length >= MAX_SCREEN_LINES) {
@@ -94,7 +105,7 @@ async function typeMessageToScreen(prefix, message) {
             updateScreenFile(); // Update file after each character
             await new Promise(resolve => setTimeout(resolve, TYPING_SPEED_MS_PER_CHAR));
         }
-        await new Promise(resolve => setTimeout(resolve, TYPING_SPEED_MS_PER_CHAR * 10)); // Increased pause slightly at end of line
+        await new Promise(resolve => setTimeout(resolve, TYPING_SPEED_MS_PER_CHAR * 10)); // Pause slightly at end of line
     }
 }
 
@@ -105,50 +116,16 @@ async function clearScreen() {
     await new Promise(resolve => setTimeout(resolve, 500)); // Short pause for visual clear
 }
 
-// --- LLM7.io API Integration Placeholder ---
+// --- LLM7.io API Integration Placeholder (Same as before) ---
 async function callLLM7IO(prompt) {
     console.log(`[LLM7.io Placeholder] Sending prompt: ${prompt.substring(0, Math.min(prompt.length, 150))}...`);
 
     // =====================================================================
     // *** IMPORTANT: REPLACE THIS WITH YOUR ACTUAL LLM7.io API CALL ***
-    // You will need to install the LLM7.io SDK or use a direct HTTP request (e.g., with 'node-fetch' npm package)
-    // Make sure to add 'node-fetch' to your package.json dependencies if you use it.
-    // Example:
-    /*
-    const fetch = require('node-fetch'); // if you install node-fetch
-
-    try {
-        const response = await fetch('https://api.llm7.io/v1/chat/completions', { // Adjust endpoint as per LLM7.io docs
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-                // No Authorization header if LLM7.io does not require API key
-            },
-            body: JSON.stringify({
-                model: "your-llm7-model-name", // e.g., "llm7-pro", "llm7-fast"
-                messages: [{ role: "user", content: prompt }],
-                temperature: 0.7,
-                max_tokens: 500
-            })
-        });
-
-        if (!response.ok) {
-            const errorBody = await response.text();
-            throw new Error(`LLM7.io API error: ${response.status} - ${errorBody}`);
-        }
-
-        const data = await response.json();
-        return data.choices[0].message.content.trim();
-
-    } catch (error) {
-        console.error("Error calling LLM7.io API:", error);
-        return "ERROR: LLM communication failed. Retrying..."; // Provide a fallback
-    }
-    */
+    // (Your existing implementation here is fine if it's working as simulated)
     // =====================================================================
 
     // === SIMULATED LLM RESPONSE FOR TESTING ===
-    // If you haven't integrated LLM7.io yet, this will provide test responses.
     await new Promise(resolve => setTimeout(resolve, Math.random() * 4000 + 1000)); // Simulate API delay
 
     if (prompt.includes("formulate a profound philosophical question")) {
@@ -168,35 +145,39 @@ async function startStreaming() {
     // Ensure the screen text file exists and is empty before FFmpeg starts
     fs.writeFileSync(SCREEN_TEXT_FILE, '', { encoding: 'utf8' });
 
-    // FFmpeg command to generate a continuous video stream with dynamic text overlay
+    // FFmpeg command to generate a continuous video stream with dynamic text overlay and image overlay
     const FFMPEG_COMMAND_ARGS = [
         '-loglevel', 'error', // Suppress verbose FFmpeg output
 
-        // Video input: A simple black color source
+        // Video input 1: A simple black color source (background)
         '-f', 'lavfi',
         '-i', `color=c=black:s=${VIDEO_WIDTH}x${VIDEO_HEIGHT}:r=${FPS}`,
+
+        // Video input 2: Your transparent terminal frame image
+        '-i', TERMINAL_FRAME_IMAGE_PATH,
 
         // Audio input: A null audio source
         '-f', 'lavfi',
         '-i', 'anullsrc',
 
-        // Complex filtergraph for video processing (drawtext overlay)
-        // [0:v] refers to the video stream from the *first* input (our color source)
-        // [1:a] refers to the audio stream from the *second* input (our anullsrc)
+        // Complex filtergraph for video processing
+        // 1. Draw text onto the black background [0:v]
+        // 2. Overlay the terminal frame image [1:v] onto the result of step 1
         '-filter_complex',
-        `[0:v]drawtext=fontfile=${FONT_PATH}:fontcolor=0x00FF00:alpha=${FLICKER_EFFECT_ALPHA}:fontsize=${FONT_SIZE}:x=${TEXT_X_OFFSET}:y=${TEXT_Y_OFFSET_START}:textfile=${SCREEN_TEXT_FILE}:reload=1:line_spacing=${LINE_HEIGHT - FONT_SIZE}[v_out]`,
+        `[0:v]drawtext=fontfile=${FONT_PATH}:fontcolor=${FONT_COLOR}:alpha=${FLICKER_EFFECT_ALPHA}:fontsize=${FONT_SIZE}:x=${TEXT_X_OFFSET}:y=${TEXT_Y_OFFSET_START}:textfile=${SCREEN_TEXT_FILE}:reload=1:line_spacing=${LINE_HEIGHT - FONT_SIZE}[text_layer];` +
+        `[text_layer][1:v]overlay=0:0[v_out]`, // Overlay the frame image at (0,0)
 
         // Output mapping for video and audio
         '-map', '[v_out]', // Map the output of the complex video filtergraph
-        '-map', '1:a',     // Map the audio source (which is the second input in the overall command)
+        '-map', '2:a',     // Map the audio source (now the third input)
 
         // Video encoding
         '-c:v', 'libx264',
         '-preset', 'veryfast', // Faster encoding for live streaming
-        '-crf', '25',         // Quality (23 is default, lower is better quality/larger file, higher is worse quality/smaller file)
+        '-crf', '25',         // Quality
         '-pix_fmt', 'yuv420p', // Pixel format for broad compatibility
-        '-g', String(FPS * 2), // GOP size (frames between keyframes), e.g., 2 seconds of video
-        '-keyint_min', String(FPS), // Minimum keyframe interval, e.g., 1 second
+        '-g', String(FPS * 2), // GOP size
+        '-keyint_min', String(FPS), // Minimum keyframe interval
         '-r', String(FPS),    // Output framerate
 
         // Audio encoding (for silent audio stream)
@@ -205,23 +186,20 @@ async function startStreaming() {
         '-ar', '44100', // Sample rate
 
         // Output format and URL
-        '-f', 'flv', // Flash Video format, common for RTMP
+        '-f', 'flv', // Flash Video format
         STREAM_TARGET
     ];
 
     ffmpegProcess = spawn('ffmpeg', FFMPEG_COMMAND_ARGS, {
-        stdio: ['ignore', 'pipe', 'pipe'] // Explicitly ignore stdin for FFmpeg
+        stdio: ['ignore', 'pipe', 'pipe']
     });
-    ffmpegProcess.unref(); // Allow Node.js event loop to exit even if FFmpeg is still running (good practice)
+    ffmpegProcess.unref();
 
-    // Log FFmpeg's stdout and stderr for debugging
     ffmpegProcess.stdout.on('data', data => {
         console.log(`FFmpeg stdout: ${data.toString()}`);
     });
 
     ffmpegProcess.stderr.on('data', data => {
-        // FFmpeg often logs progress and errors to stderr.
-        // You might see lines like 'frame=...' or 'fps=...' here.
         console.error(`FFmpeg stderr: ${data.toString()}`);
     });
 
@@ -229,7 +207,7 @@ async function startStreaming() {
         console.log(`FFmpeg process exited with code ${code}`);
         if (code !== 0) {
             console.error('FFmpeg stream unexpectedly stopped. Attempting to restart in 5 seconds...');
-            setTimeout(startStreaming, 5000); // Attempt to restart streaming
+            setTimeout(startStreaming, 5000);
         }
     });
 
@@ -237,18 +215,17 @@ async function startStreaming() {
         console.error('Failed to start FFmpeg process:', err);
     });
 
-    // Handle process exit gracefully (e.g., if Render stops the service)
     process.on('SIGINT', () => {
         console.log('Received SIGINT. Terminating FFmpeg process...');
         if (ffmpegProcess) {
-            ffmpegProcess.kill('SIGTERM'); // Send SIGTERM to FFmpeg
+            ffmpegProcess.kill('SIGTERM');
         }
         process.exit(0);
     });
     process.on('SIGTERM', () => {
         console.log('Received SIGTERM. Terminating FFmpeg process...');
         if (ffmpegProcess) {
-            ffmpegProcess.kill('SIGTERM'); // Send SIGTERM to FFmpeg
+            ffmpegProcess.kill('SIGTERM');
         }
         process.exit(0);
     });
@@ -256,7 +233,7 @@ async function startStreaming() {
     console.log('FFmpeg stream process started.');
     console.log(`Streaming to: ${STREAM_TARGET}`);
 
-    // --- AI Conversation Loop ---
+    // --- AI Conversation Loop --- (No changes needed here)
     async function aiConversationLoop() {
         let currentThoughtContext = "The AI begins its self-exploration journey.";
         let question = "";
@@ -311,16 +288,14 @@ async function startStreaming() {
         }
     }
 
-    // Start the AI loop after FFmpeg has likely initialized
-    // Give FFmpeg a moment to start before pushing text to the file.
     setTimeout(() => {
         aiConversationLoop().catch(err => {
             console.error("Error in AI conversation loop:", err);
             if (ffmpegProcess) {
-                ffmpegProcess.kill('SIGTERM'); // Terminate FFmpeg on AI error
+                ffmpegProcess.kill('SIGTERM');
             }
         });
-    }, 5000); // Wait 5 seconds before starting AI loop to ensure FFmpeg is ready
+    }, 5000);
 }
 
 // Start the entire process
