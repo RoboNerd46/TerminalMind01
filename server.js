@@ -18,6 +18,13 @@ const PORT = process.env.PORT || 10000; // Use PORT environment variable or defa
 // Serve static files from the public directory
 app.use(express.static(path.join(__dirname, 'public')));
 
+// --- FIX APPLIED HERE: Serve index.html for the root path ---
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+// --- END FIX ---
+
+
 // --- Server State Variables ---
 let frameBuffer = []; // Stores lines of text for the terminal display
 let currentFrame = 0;
