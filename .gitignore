@@ -1,0 +1,14 @@
+# Node.js
+node_modules/
+npm-debug.log*
+.env
+
+# MacOS
+.DS_Store
+
+# IDEs
+.vscode/
+.idea/
+
+# Render specific
+.render/
