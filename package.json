@@ -1,25 +1,17 @@
 {
   "name": "ai-consciousness-terminal",
   "version": "1.0.0",
-  "description": "AI Stream of Consciousness Terminal with LLM7.io integration",
+  "description": "An AI Consciousness Terminal with real-time interaction.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"No test specified\" && exit 0"
   },
-  "keywords": [
-    "AI",
-    "terminal",
-    "websocket",
-    "node.js",
-    "LLM"
-  ],
-  "author": "",
-  "license": "ISC",
+  "keywords": [],
+  "author": "Your Name/Organization",
+  "license": "MIT",
   "dependencies": {
-    "axios": "^1.x.x",
-    "dotenv": "^16.x.x",
-    "express": "^4.x.x",
-    "ws": "^8.x.x"
+    "express": "^4.19.2",
+    "ws": "^8.18.0"
   }
 }
