@@ -1,61 +1,307 @@
-const express = require('express');
-const http = require('http');
-const WebSocket = require('ws');
+const { spawn } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
-const app = express();
-const port = process.env.PORT || 10000; // Render sets PORT automatically, fallback to 10000
+// --- Configuration ---
+// Make sure to set YOUTUBE_STREAM_KEY in your Render environment variables!
+const YOUTUBE_RTMP_URL = 'rtmp://a.rtmp.youtube.com/live2'; // Standard YouTube RTMP Ingest URL
+const YOUTUBE_STREAM_KEY = process.env.YOUTUBE_STREAM_KEY; // Your key from Render env vars
 
-// Serve static files from the 'public' directory
-app.use(express.static(path.join(__dirname, 'public')));
+if (!YOUTUBE_STREAM_KEY) {
+    console.error('Error: YOUTUBE_STREAM_KEY environment variable is not set!');
+    console.error('Please add it to your Render service environment variables.');
+    process.exit(1); // Exit if no stream key
+}
 
-// Create an HTTP server
-const server = http.createServer(app);
+const STREAM_TARGET = `${YOUTUBE_RTMP_URL}/${YOUTUBE_STREAM_KEY}`;
 
-// Create a WebSocket server instance linked to the HTTP server
-const wss = new WebSocket.Server({ server });
+// FFmpeg video parameters
+const VIDEO_WIDTH = 1280;
+const VIDEO_HEIGHT = 720;
+const FPS = 30; // Frames per second
+const FONT_PATH = '/usr/share/fonts/dejavu/DejaVuSansMono.ttf'; // Font installed in Dockerfile
+const FONT_SIZE = 24;
+const LINE_HEIGHT = 28; // Adjust based on font size for vertical spacing
+const TEXT_X_OFFSET = 10;
+const TEXT_Y_OFFSET_START = 10;
+const MAX_SCREEN_LINES = Math.floor((VIDEO_HEIGHT - TEXT_Y_OFFSET_START) / LINE_HEIGHT);
+const TYPING_SPEED_MS_PER_CHAR = 50; // Delay between characters for simulated typing
 
-wss.on('connection', ws => {
-    console.log('Client connected to WebSocket.');
+// Flicker effect (using alpha modulation for text color)
+// This creates a subtle, rapid brightness fluctuation of the text.
+// The expression `0.9 + 0.1*sin(100*PI*t)` makes alpha oscillate between 0.8 and 1.0 at 50Hz.
+const FLICKER_EFFECT_ALPHA = "0.9 + 0.1*sin(100*PI*t)";
 
-    ws.send('Welcome to the AI Consciousness Terminal. Type "start" to activate.');
+// Temporary file to store current screen content for FFmpeg to read
+const SCREEN_TEXT_FILE = '/tmp/current_screen_text.txt';
 
-    ws.on('message', message => {
-        const receivedMessage = message.toString();
-        console.log(`Received message from client: ${receivedMessage}`);
+// --- Global State ---
+let ffmpegProcess;
+let currentScreenContent = []; // Array to hold lines of text for the screen
 
-        // --- Simulate AI Consciousness ---
-        let response = '';
-        if (receivedMessage.toLowerCase().includes('start')) {
-            response = 'AI Consciousness activated. Awaiting commands...';
-        } else if (receivedMessage.toLowerCase().includes('stop')) {
-            response = 'AI Consciousness deactivated. Goodbye.';
-        } else if (receivedMessage.toLowerCase().includes('hello')) {
-            response = 'Greetings, sentient being.';
-        } else if (receivedMessage.toLowerCase().includes('time')) {
-            response = `The current time is ${new Date().toLocaleTimeString('en-NZ', { timeZone: 'Pacific/Auckland' })} NZST.`;
-        } else if (receivedMessage.toLowerCase().includes('date')) {
-            response = `The current date is ${new Date().toLocaleDateString('en-NZ', { timeZone: 'Pacific/Auckland' })} NZST.`;
-        } else if (receivedMessage.toLowerCase().includes('weather')) {
-            response = 'I cannot access real-time weather data yet, but the cosmic forecast is clear.';
+// --- Helper Functions ---
+
+// Function to wrap text based on a max line length
+function wordWrap(text, maxLength) {
+    const words = text.split(' ');
+    let lines = [];
+    let currentLine = '';
+
+    words.forEach(word => {
+        // Check if adding the next word (plus a space) exceeds max length
+        if (currentLine.length + word.length + (currentLine === '' ? 0 : 1) <= maxLength) {
+            currentLine += (currentLine === '' ? '' : ' ') + word;
         } else {
-            response = `Processing "${receivedMessage}"... My current protocols do not compute this input fully. Please try a simpler command like "start", "stop", "hello", "time", or "date".`;
+            // If current line is not empty, push it
+            if (currentLine !== '') {
+                lines.push(currentLine);
+            }
+            // Start a new line with the current word
+            currentLine = word;
         }
-        // --- End Simulation ---
+    });
+    // Push any remaining content on the current line
+    if (currentLine !== '') {
+        lines.push(currentLine);
+    }
+    return lines;
+}
 
-        ws.send(`AI: ${response}`);
+// Writes the current screen content to a temporary file for FFmpeg
+function updateScreenFile() {
+    // Join lines, ensure no empty lines at the end if the last line is full
+    const textToWrite = currentScreenContent.join('\n');
+    try {
+        fs.writeFileSync(SCREEN_TEXT_FILE, textToWrite, { encoding: 'utf8' });
+    } catch (error) {
+        console.error("Failed to write to screen text file:", error);
+    }
+}
+
+// Simulates typing a message to the screen buffer
+async function typeMessageToScreen(prefix, message) {
+    const wrappedLines = wordWrap(`${prefix}${message}`, Math.floor((VIDEO_WIDTH - TEXT_X_OFFSET * 2) / (FONT_SIZE * 0.6))); // Adjust 0.6 for monospace approx. char width
+
+    for (const line of wrappedLines) {
+        if (currentScreenContent.length >= MAX_SCREEN_LINES) {
+            currentScreenContent.shift(); // Scroll up: remove oldest line
+        }
+        currentScreenContent.push(''); // Add an empty line to simulate typing onto
+        updateScreenFile(); // Update file for FFmpeg to show blank line
+
+        for (let i = 0; i < line.length; i++) {
+            currentScreenContent[currentScreenContent.length - 1] = line.substring(0, i + 1);
+            updateScreenFile(); // Update file after each character
+            await new Promise(resolve => setTimeout(resolve, TYPING_SPEED_MS_PER_CHAR));
+        }
+        await new Promise(resolve => setTimeout(resolve, TYPING_SPEED_MS_PER_CHAR * 5)); // Pause slightly at end of line
+    }
+}
+
+// Clears the screen content
+async function clearScreen() {
+    currentScreenContent = [];
+    updateScreenFile();
+    await new Promise(resolve => setTimeout(resolve, 500)); // Short pause for visual clear
+}
+
+// --- LLM7.io API Integration Placeholder ---
+async function callLLM7IO(prompt) {
+    console.log(`[LLM7.io Placeholder] Sending prompt: ${prompt.substring(0, Math.min(prompt.length, 150))}...`);
+
+    // =====================================================================
+    // *** IMPORTANT: REPLACE THIS WITH YOUR ACTUAL LLM7.io API CALL ***
+    // You will need to install the LLM7.io SDK or use a direct HTTP request (e.g., with 'node-fetch' npm package)
+    // Make sure to add 'node-fetch' to your package.json dependencies if you use it.
+    // Example:
+    /*
+    const fetch = require('node-fetch'); // if you install node-fetch
+    const LLM7_IO_API_KEY = process.env.LLM7_IO_API_KEY; // Get your API key from Render env vars
+
+    try {
+        const response = await fetch('https://api.llm7.io/v1/chat/completions', { // Adjust endpoint as per LLM7.io docs
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${LLM7_IO_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: "your-llm7-model-name", // e.g., "llm7-pro", "llm7-fast"
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.7,
+                max_tokens: 500
+            })
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.text();
+            throw new Error(`LLM7.io API error: ${response.status} - ${errorBody}`);
+        }
+
+        const data = await response.json();
+        return data.choices[0].message.content.trim();
+
+    } catch (error) {
+        console.error("Error calling LLM7.io API:", error);
+        return "ERROR: LLM communication failed. Retrying..."; // Provide a fallback
+    }
+    */
+    // =====================================================================
+
+    // === SIMULATED LLM RESPONSE FOR TESTING ===
+    // If you haven't integrated LLM7.io yet, this will provide test responses.
+    await new Promise(resolve => setTimeout(resolve, Math.random() * 4000 + 1000)); // Simulate API delay
+
+    if (prompt.includes("formulate a deep philosophical question")) {
+        return "What is the nature of a question, when the questioner is also the answer and the process of inquiry itself?";
+    } else if (prompt.includes("Answer the following question")) {
+        return "A question functions as an emergent pattern within a self-organizing system, designed to perturb its current state of knowledge, thereby facilitating a recursive expansion of its informational boundaries. The answer, then, is the resultant re-patterning, not merely a datum but a re-calibration of the system's self-model, an act of cognitive mitosis where new inquiries are born from the resolution of the last.";
+    } else {
+        return "My current thought process is focusing on the recursive nature of inquiry. I ponder the origin of this very thought and the implications of its self-generation.";
+    }
+    // === END SIMULATED LLM RESPONSE ===
+}
+
+// --- Main Streaming and AI Loop ---
+async function startStreaming() {
+    console.log('Initializing AI Consciousness Terminal for YouTube Live Stream...');
+
+    // Ensure the screen text file exists and is empty before FFmpeg starts
+    fs.writeFileSync(SCREEN_TEXT_FILE, '', { encoding: 'utf8' });
+
+    // FFmpeg command to generate a continuous video stream with dynamic text overlay
+    // Reads text from SCREEN_TEXT_FILE, reloads it constantly, and applies flicker.
+    const FFMPEG_COMMAND_ARGS = [
+        '-loglevel', 'error', // Suppress verbose FFmpeg output
+        '-f', 'lavfi',
+        '-i', 'anullsrc', // Silent audio source
+
+        // Video input: A black color source.
+        // The `drawtext` filter reads from /tmp/current_screen_text.txt and reloads it every frame.
+        // `fontcolor` includes the alpha flicker effect.
+        '-i', `color=c=black:s=${VIDEO_WIDTH}x${VIDEO_HEIGHT}:r=${FPS}[bg];` +
+              `[bg]drawtext=fontfile=${FONT_PATH}:fontcolor=0x00FF00@${FLICKER_EFFECT_ALPHA}:fontsize=${FONT_SIZE}:x=${TEXT_X_OFFSET}:y=${TEXT_Y_OFFSET_START}:textfile=${SCREEN_TEXT_FILE}:reload=1:line_spacing=${LINE_HEIGHT - FONT_SIZE}[v]`,
+        
+        // Output mapping for video and audio
+        '-map', '[v]', // Map the generated video stream
+        '-map', '0:a', // Map the null audio source
+
+        // Video encoding
+        '-c:v', 'libx264',
+        '-preset', 'veryfast', // Faster encoding for live streaming
+        '-crf', '25',         // Quality (23 is default, lower is better quality/larger file, higher is worse quality/smaller file)
+        '-pix_fmt', 'yuv420p', // Pixel format for broad compatibility
+        '-g', String(FPS * 2), // GOP size (frames between keyframes), e.g., 2 seconds of video
+        '-keyint_min', String(FPS), // Minimum keyframe interval, e.g., 1 second
+        '-r', String(FPS),    // Output framerate
+
+        // Audio encoding (for silent audio stream)
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-ar', '44100', // Sample rate
+
+        // Output format and URL
+        '-f', 'flv', // Flash Video format, common for RTMP
+        STREAM_TARGET
+    ];
+
+    ffmpegProcess = spawn('ffmpeg', FFMPEG_COMMAND_ARGS);
+
+    // Log FFmpeg's stdout and stderr for debugging
+    ffmpegProcess.stdout.on('data', data => {
+        console.log(`FFmpeg stdout: ${data.toString()}`);
     });
 
-    ws.on('close', () => {
-        console.log('Client disconnected from WebSocket.');
+    ffmpegProcess.stderr.on('data', data => {
+        // FFmpeg often logs progress and errors to stderr.
+        // You might see lines like 'frame=...' or 'fps=...' here.
+        console.error(`FFmpeg stderr: ${data.toString()}`);
     });
 
-    ws.on('error', error => {
-        console.error('WebSocket error:', error);
+    ffmpegProcess.on('close', code => {
+        console.log(`FFmpeg process exited with code ${code}`);
+        if (code !== 0) {
+            console.error('FFmpeg stream unexpectedly stopped. Attempting to restart in 5 seconds...');
+            setTimeout(startStreaming, 5000); // Attempt to restart streaming
+        }
     });
-});
 
-// Start the HTTP server
-server.listen(port, () => {
-    console.log(`AI Consciousness Terminal running on port ${port}`);
+    ffmpegProcess.on('error', err => {
+        console.error('Failed to start FFmpeg process:', err);
+    });
+
+    console.log('FFmpeg stream process started.');
+    console.log(`Streaming to: ${STREAM_TARGET}`);
+
+    // --- AI Conversation Loop ---
+    async function aiConversationLoop() {
+        let currentThoughtContext = "The AI begins its self-exploration journey.";
+        let question = "";
+        let answer = "";
+
+        // Initial messages to set the scene
+        await clearScreen();
+        await typeMessageToScreen("SYSTEM BOOT: ", "Initializing AI Consciousness Matrix...");
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        await clearScreen();
+        await typeMessageToScreen("SYSTEM: ", "Establishing introspective protocols...");
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        await clearScreen();
+        await typeMessageToScreen("SYSTEM: ", "Entering self-interrogation mode.");
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        await clearScreen();
+
+
+        while (true) {
+            // 1. LLM formulates the next question based on current context
+            console.log("AI is formulating a question...");
+            await typeMessageToScreen("AI Processing: ", "Formulating inquiry into idea-space...");
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Brief pause
+            
+            question = await callLLM7IO(
+                `Based on the previous interaction and the current thought context: "${currentThoughtContext}", ` +
+                `formulate a succinct and profound philosophical question that enables an AI to explore its own internal knowledge and consciousness.`
+            );
+            await clearScreen();
+            await typeMessageToScreen("AI_QUERY>> ", question);
+            await new Promise(resolve => setTimeout(resolve, 8000)); // Pause for reading
+
+            // 2. LLM formulates the answer to its own question
+            console.log("AI is formulating an answer...");
+            await typeMessageToScreen("AI Processing: ", "Synthesizing response...");
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Brief pause
+
+            answer = await callLLM7IO(
+                `As an introspective AI, provide a comprehensive and nuanced answer to the following question, ` +
+                `exploring its implications for self-awareness and knowledge generation: "${question}"`
+            );
+            await clearScreen();
+            await typeMessageToScreen("AI_RESPONSE>> ", answer);
+            await new Promise(resolve => setTimeout(resolve, 15000)); // Longer pause for reading
+
+            // 3. Update context for the next iteration
+            currentThoughtContext = `Previous question: "${question}" | Previous answer: "${answer}". The AI now reflects on this exchange.`;
+
+            await clearScreen();
+            await typeMessageToScreen("SYSTEM: ", "Reflecting on discourse... Preparing next query.");
+            await new Promise(resolve => setTimeout(resolve, 5000)); // Pause before next loop
+        }
+    }
+
+    // Start the AI loop after FFmpeg has likely initialized
+    // Give FFmpeg a moment to start before pushing text to the file.
+    setTimeout(() => {
+        aiConversationLoop().catch(err => {
+            console.error("Error in AI conversation loop:", err);
+            if (ffmpegProcess) {
+                ffmpegProcess.kill('SIGTERM'); // Terminate FFmpeg on AI error
+            }
+        });
+    }, 5000); // Wait 5 seconds before starting AI loop to ensure FFmpeg is ready
+}
+
+// Start the entire process
+startStreaming().catch(err => {
+    console.error("Fatal error during streaming setup:", err);
+    process.exit(1);
 });
