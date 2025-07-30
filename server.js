@@ -6,7 +6,7 @@ const path = require('path');
 // Make sure to set YOUTUBE_STREAM_KEY in your Render environment variables!
 // CORRECTED: Standard YouTube RTMP URL. If this is still incorrect,
 // you must provide the exact Stream URL from your YouTube Live Dashboard.
-const YOUTUBE_RTMP_URL = 'rtmp://a.rtmp.youtube.com/live2'; // Or rtmp://b.rtmp.youtube.com/live2
+const YOUTUBE_RTMP_URL = 'rtmp://http://googleusercontent.com/youtube.com/live2'; // OR 'rtmp://a.rtmp.youtube.com/live2' or 'rtmp://b.rtmp.youtube.com/live2'
 const YOUTUBE_STREAM_KEY = process.env.YOUTUBE_STREAM_KEY; // Your key from Render env vars
 
 if (!YOUTUBE_STREAM_KEY) {
@@ -185,7 +185,7 @@ async function startStreaming() {
         // [1:a] refers to the audio stream from the *second* input (our anullsrc)
         '-filter_complex',
         `[0:v]drawtext=fontfile=${FONT_PATH}:fontcolor=0x00FF00:alpha=${FLICKER_EFFECT_ALPHA}:fontsize=${FONT_SIZE}:x=${TEXT_X_OFFSET}:y=${TEXT_Y_OFFSET_START}:textfile=${SCREEN_TEXT_FILE}:reload=1:line_spacing=${LINE_HEIGHT - FONT_SIZE}[v_out]`,
-        
+
         // Output mapping for video and audio
         '-map', '[v_out]', // Map the output of the complex video filtergraph
         '-map', '1:a',     // Map the audio source (which is the second input in the overall command)
@@ -280,7 +280,7 @@ async function startStreaming() {
             console.log("AI is formulating a question...");
             await typeMessageToScreen("AI Processing: ", "Formulating inquiry into idea-space...");
             await new Promise(resolve => setTimeout(resolve, 3000)); // Increased brief pause (was 2000)
-            
+
             question = await callLLM7IO(
                 `Based on the previous interaction and the current thought context: "${currentThoughtContext}", ` +
                 `formulate a succinct and profound philosophical question that enables an AI to explore its own internal knowledge and consciousness.`
