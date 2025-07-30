@@ -1,0 +1,141 @@
+body {
+    background-color: #000;
+    color: #0F0; /* Green text */
+    font-family: 'Roboto Mono', monospace; /* Monospace font for terminal feel */
+    font-size: 1rem;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden; /* Hide scrollbars if content is within bounds */
+}
+
+.terminal-window {
+    background-color: #1a1a1a;
+    border: 1px solid #0F0;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+    width: 90%;
+    max-width: 800px;
+    height: 70vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.terminal-header {
+    background-color: #0A0A0A;
+    padding: 8px 15px;
+    border-bottom: 1px solid #0F0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.terminal-title {
+    font-weight: bold;
+    color: #0F0;
+    text-transform: uppercase;
+}
+
+.terminal-buttons {
+    display: flex;
+    gap: 5px;
+}
+
+.terminal-button {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid #333;
+}
+
+.terminal-button.red { background-color: #FF5F56; }
+.terminal-button.yellow { background-color: #FFBD2E; }
+.terminal-button.green { background-color: #27C93F; }
+
+.terminal-body {
+    flex-grow: 1;
+    padding: 15px;
+    overflow-y: auto; /* Enable scrolling for output */
+    display: flex;
+    flex-direction: column;
+}
+
+.terminal-output p {
+    margin: 0;
+    line-height: 1.4;
+    word-wrap: break-word; /* Wrap long words */
+}
+
+.terminal-output p.system-message {
+    color: #0FF; /* Cyan for system messages */
+}
+
+.terminal-output p.ai-message {
+    color: #0F0; /* Green for AI responses */
+}
+
+.terminal-output p.user-input {
+    color: #FFF; /* White for user input */
+}
+
+.terminal-output p.error-message {
+    color: #F00; /* Red for errors */
+}
+
+.terminal-input-line {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+    border-top: 1px dashed #060; /* Subtle dashed line above input */
+    padding-top: 10px;
+}
+
+.prompt {
+    color: #0F0;
+    margin-right: 5px;
+}
+
+.terminal-input {
+    background: none;
+    border: none;
+    color: #FFF; /* White input text */
+    font-family: 'Roboto Mono', monospace;
+    font-size: 1rem;
+    flex-grow: 1;
+    outline: none; /* Remove focus outline */
+    caret-color: #0F0; /* Green cursor */
+    padding: 0;
+}
+
+/* Scrollbar styling for a consistent look */
+.terminal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.terminal-body::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+.terminal-body::-webkit-scrollbar-thumb {
+    background-color: #060;
+    border-radius: 4px;
+    border: 1px solid #0F0;
+}
+
+.terminal-body::-webkit-scrollbar-thumb:hover {
+    background-color: #090;
+}
+
+@media (max-width: 600px) {
+    body {
+        padding: 10px;
+    }
+    .terminal-window {
+        width: 95%;
+        height: 85vh;
+    }
+}
