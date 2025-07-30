@@ -32,8 +32,8 @@ const TYPING_SPEED_MS_PER_CHAR = 50; // Delay between characters for simulated t
 // Flicker effect (using alpha modulation for text color)
 // This creates a subtle, rapid brightness fluctuation of the text.
 // The expression `0.9 + 0.1*sin(100*PI*t)` makes alpha oscillate between 0.8 and 1.0 at 50Hz.
-// We need to escape special characters for FFmpeg's filtergraph parsing.
-const FLICKER_EFFECT_ALPHA = "0.9 + 0.1*sin(100*PI*t)".replace(/\*/g, '\\*'); // Escape '*'
+// No escaping needed here as this string will be part of the filter_complex argument.
+const FLICKER_EFFECT_ALPHA = "0.9 + 0.1*sin(100*PI*t)";
 
 // Temporary file to store current screen content for FFmpeg to read
 const SCREEN_TEXT_FILE = '/tmp/current_screen_text.txt';
@@ -176,23 +176,25 @@ async function startStreaming() {
     const FFMPEG_COMMAND_ARGS = [
         '-loglevel', 'error', // Suppress verbose FFmpeg output
 
-        // Video input: A simple black color source
+        // Video input: A simple black color source, correctly formatted for lavfi
         '-f', 'lavfi',
         '-i', `color=c=black:s=${VIDEO_WIDTH}x${VIDEO_HEIGHT}:r=${FPS}`, // Video source
+        // The above is the correct way to pass a lavfi color source.
+        // It should NOT be `color=c=black:...[bg]` here.
 
-        // Audio input: A null audio source
+        // Audio input: A null audio source, correctly formatted for lavfi
         '-f', 'lavfi',
         '-i', 'anullsrc', // Audio source
 
         // Complex filtergraph for video processing (drawtext overlay)
-        // [0:v] refers to the first video input (the color source)
-        // [1:a] refers to the first audio input (the anullsrc)
+        // [0:v] refers to the video stream from the *first* input (our color source)
+        // [1:a] refers to the audio stream from the *second* input (our anullsrc)
         '-filter_complex',
         `[0:v]drawtext=fontfile=${FONT_PATH}:fontcolor=0x00FF00@${FLICKER_EFFECT_ALPHA}:fontsize=${FONT_SIZE}:x=${TEXT_X_OFFSET}:y=${TEXT_Y_OFFSET_START}:textfile=${SCREEN_TEXT_FILE}:reload=1:line_spacing=${LINE_HEIGHT - FONT_SIZE}[v_out]`,
         
         // Output mapping for video and audio
         '-map', '[v_out]', // Map the output of the complex video filtergraph
-        '-map', '1:a',     // Map the audio source (which is the second input)
+        '-map', '1:a',     // Map the audio source (which is the second input in the overall command)
 
         // Video encoding
         '-c:v', 'libx264',
