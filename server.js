@@ -32,7 +32,7 @@ const TYPING_SPEED_MS_PER_CHAR = 50; // Delay between characters for simulated t
 // Flicker effect (using alpha modulation for text color)
 // This creates a subtle, rapid brightness fluctuation of the text.
 // The expression `0.9 + 0.1*sin(100*PI*t)` makes alpha oscillate between 0.8 and 1.0 at 50Hz.
-// No escaping needed here as this string will be part of the filter_complex argument.
+// This string will now be used for the 'alpha' option directly.
 const FLICKER_EFFECT_ALPHA = "0.9 + 0.1*sin(100*PI*t)";
 
 // Temporary file to store current screen content for FFmpeg to read
@@ -172,25 +172,22 @@ async function startStreaming() {
     fs.writeFileSync(SCREEN_TEXT_FILE, '', { encoding: 'utf8' });
 
     // FFmpeg command to generate a continuous video stream with dynamic text overlay
-    // Now using -f lavfi for a simple color input, and -filter_complex for the combined video and text processing.
     const FFMPEG_COMMAND_ARGS = [
         '-loglevel', 'error', // Suppress verbose FFmpeg output
 
-        // Video input: A simple black color source, correctly formatted for lavfi
+        // Video input: A simple black color source
         '-f', 'lavfi',
-        '-i', `color=c=black:s=${VIDEO_WIDTH}x${VIDEO_HEIGHT}:r=${FPS}`, // Video source
-        // The above is the correct way to pass a lavfi color source.
-        // It should NOT be `color=c=black:...[bg]` here.
+        '-i', `color=c=black:s=${VIDEO_WIDTH}x${VIDEO_HEIGHT}:r=${FPS}`,
 
-        // Audio input: A null audio source, correctly formatted for lavfi
+        // Audio input: A null audio source
         '-f', 'lavfi',
-        '-i', 'anullsrc', // Audio source
+        '-i', 'anullsrc',
 
         // Complex filtergraph for video processing (drawtext overlay)
         // [0:v] refers to the video stream from the *first* input (our color source)
         // [1:a] refers to the audio stream from the *second* input (our anullsrc)
         '-filter_complex',
-        `[0:v]drawtext=fontfile=${FONT_PATH}:fontcolor=0x00FF00@${FLICKER_EFFECT_ALPHA}:fontsize=${FONT_SIZE}:x=${TEXT_X_OFFSET}:y=${TEXT_Y_OFFSET_START}:textfile=${SCREEN_TEXT_FILE}:reload=1:line_spacing=${LINE_HEIGHT - FONT_SIZE}[v_out]`,
+        `[0:v]drawtext=fontfile=${FONT_PATH}:fontcolor=0x00FF00:alpha=${FLICKER_EFFECT_ALPHA}:fontsize=${FONT_SIZE}:x=${TEXT_X_OFFSET}:y=${TEXT_Y_OFFSET_START}:textfile=${SCREEN_TEXT_FILE}:reload=1:line_spacing=${LINE_HEIGHT - FONT_SIZE}[v_out]`,
         
         // Output mapping for video and audio
         '-map', '[v_out]', // Map the output of the complex video filtergraph
