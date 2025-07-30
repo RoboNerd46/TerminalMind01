@@ -1,17 +1,25 @@
 {
   "name": "ai-consciousness-terminal",
   "version": "1.0.0",
-  "description": "An AI Consciousness Terminal with real-time interaction.",
+  "description": "An AI exploring its own consciousness, streaming to YouTube Live.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "test": "echo \"No test specified\" && exit 0"
+    "start": "node server.js"
   },
-  "keywords": [],
-  "author": "Your Name/Organization",
-  "license": "MIT",
   "dependencies": {
-    "express": "^4.19.2",
-    "ws": "^8.18.0"
-  }
+    "express": "^4.18.2",
+    "ws": "^8.16.0"
+    // No 'node-fetch' needed if LLM7.io doesn't use standard fetch/doesn't need an API key for your chosen method
+    // If you integrate a specific LLM7.io SDK, you would add its package here.
+  },
+  "keywords": [
+    "AI",
+    "LLM",
+    "YouTube",
+    "Live Stream",
+    "Node.js",
+    "FFmpeg"
+  ],
+  "author": "Your Name Here",
+  "license": "ISC"
 }
