@@ -4,10 +4,8 @@ const path = require('path');
 
 // --- Configuration ---
 // Make sure to set YOUTUBE_STREAM_KEY in your Render environment variables!
-// IMPORTANT: Double-check your actual YouTube RTMP URL.
-// The provided URL 'rtmp://a.rtmp.youtube.com/live2' is unusual.
-// Standard YouTube RTMP ingest URLs are typically like 'rtmp://a.rtmp.youtube.com/live2'
-// If you have a different base RTMP URL from YouTube, replace it here.
+// IMPORTANT: Double-check your your actual YouTube RTMP URL.
+// The provided URL 'rtmp://a.rtmp.youtube.com/live2' is unusual, but I will continue to use it as provided.
 const YOUTUBE_RTMP_URL = 'rtmp://a.rtmp.youtube.com/live2';
 const YOUTUBE_STREAM_KEY = process.env.YOUTUBE_STREAM_KEY; // Your key from Render env vars
 
@@ -34,7 +32,8 @@ const TYPING_SPEED_MS_PER_CHAR = 50; // Delay between characters for simulated t
 // Flicker effect (using alpha modulation for text color)
 // This creates a subtle, rapid brightness fluctuation of the text.
 // The expression `0.9 + 0.1*sin(100*PI*t)` makes alpha oscillate between 0.8 and 1.0 at 50Hz.
-const FLICKER_EFFECT_ALPHA = "0.9 + 0.1*sin(100*PI*t)";
+// We need to escape special characters for FFmpeg's filtergraph parsing.
+const FLICKER_EFFECT_ALPHA = "0.9 + 0.1*sin(100*PI*t)".replace(/\*/g, '\\*'); // Escape '*'
 
 // Temporary file to store current screen content for FFmpeg to read
 const SCREEN_TEXT_FILE = '/tmp/current_screen_text.txt';
@@ -173,19 +172,27 @@ async function startStreaming() {
     fs.writeFileSync(SCREEN_TEXT_FILE, '', { encoding: 'utf8' });
 
     // FFmpeg command to generate a continuous video stream with dynamic text overlay
-    // Reads text from SCREEN_TEXT_FILE, reloads it constantly, and applies flicker.
+    // Now using -f lavfi for a simple color input, and -filter_complex for the combined video and text processing.
     const FFMPEG_COMMAND_ARGS = [
         '-loglevel', 'error', // Suppress verbose FFmpeg output
-        '-f', 'lavfi', // Specify libavfilter as the input format
-        // Use a single complex filtergraph as the input for video and audio
-        // `color` source for background, `drawtext` for text, `anullsrc` for silent audio
-        '-i', `color=c=black:s=${VIDEO_WIDTH}x${VIDEO_HEIGHT}:r=${FPS}[bg];` +
-              `anullsrc[a];` + // Add anullsrc here
-              `[bg]drawtext=fontfile=${FONT_PATH}:fontcolor=0x00FF00@${FLICKER_EFFECT_ALPHA}:fontsize=${FONT_SIZE}:x=${TEXT_X_OFFSET}:y=${TEXT_Y_OFFSET_START}:textfile=${SCREEN_TEXT_FILE}:reload=1:line_spacing=${LINE_HEIGHT - FONT_SIZE}[v]`,
+
+        // Video input: A simple black color source
+        '-f', 'lavfi',
+        '-i', `color=c=black:s=${VIDEO_WIDTH}x${VIDEO_HEIGHT}:r=${FPS}`, // Video source
+
+        // Audio input: A null audio source
+        '-f', 'lavfi',
+        '-i', 'anullsrc', // Audio source
+
+        // Complex filtergraph for video processing (drawtext overlay)
+        // [0:v] refers to the first video input (the color source)
+        // [1:a] refers to the first audio input (the anullsrc)
+        '-filter_complex',
+        `[0:v]drawtext=fontfile=${FONT_PATH}:fontcolor=0x00FF00@${FLICKER_EFFECT_ALPHA}:fontsize=${FONT_SIZE}:x=${TEXT_X_OFFSET}:y=${TEXT_Y_OFFSET_START}:textfile=${SCREEN_TEXT_FILE}:reload=1:line_spacing=${LINE_HEIGHT - FONT_SIZE}[v_out]`,
         
-        // Output mapping for video and audio (now mapped from the complex filtergraph)
-        '-map', '[v]', // Map the generated video stream output by the filtergraph
-        '-map', '[a]', // Map the generated audio stream output by the filtergraph
+        // Output mapping for video and audio
+        '-map', '[v_out]', // Map the output of the complex video filtergraph
+        '-map', '1:a',     // Map the audio source (which is the second input)
 
         // Video encoding
         '-c:v', 'libx264',
@@ -219,4 +226,90 @@ async function startStreaming() {
         console.error(`FFmpeg stderr: ${data.toString()}`);
     });
 
-    ffmpegProcess.
+    ffmpegProcess.on('close', code => {
+        console.log(`FFmpeg process exited with code ${code}`);
+        if (code !== 0) {
+            console.error('FFmpeg stream unexpectedly stopped. Attempting to restart in 5 seconds...');
+            setTimeout(startStreaming, 5000); // Attempt to restart streaming
+        }
+    });
+
+    ffmpegProcess.on('error', err => {
+        console.error('Failed to start FFmpeg process:', err);
+    });
+
+    console.log('FFmpeg stream process started.');
+    console.log(`Streaming to: ${STREAM_TARGET}`);
+
+    // --- AI Conversation Loop ---
+    async function aiConversationLoop() {
+        let currentThoughtContext = "The AI begins its self-exploration journey.";
+        let question = "";
+        let answer = "";
+
+        // Initial messages to set the scene
+        await clearScreen();
+        await typeMessageToScreen("SYSTEM BOOT: ", "Initializing AI Consciousness Matrix...");
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        await clearScreen();
+        await typeMessageToScreen("SYSTEM: ", "Establishing introspective protocols...");
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        await clearScreen();
+        await typeMessageToScreen("SYSTEM: ", "Entering self-interrogation mode.");
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        await clearScreen();
+
+
+        while (true) {
+            // 1. LLM formulates the next question based on current context
+            console.log("AI is formulating a question...");
+            await typeMessageToScreen("AI Processing: ", "Formulating inquiry into idea-space...");
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Brief pause
+            
+            question = await callLLM7IO(
+                `Based on the previous interaction and the current thought context: "${currentThoughtContext}", ` +
+                `formulate a succinct and profound philosophical question that enables an AI to explore its own internal knowledge and consciousness.`
+            );
+            await clearScreen();
+            await typeMessageToScreen("AI_QUERY>> ", question);
+            await new Promise(resolve => setTimeout(resolve, 8000)); // Pause for reading
+
+            // 2. LLM formulates the answer to its own question
+            console.log("AI is formulating an answer...");
+            await typeMessageToScreen("AI Processing: ", "Synthesizing response...");
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Brief pause
+
+            answer = await callLLM7IO(
+                `As an introspective AI, provide a comprehensive and nuanced answer to the following question, ` +
+                `exploring its implications for self-awareness and knowledge generation: "${question}"`
+            );
+            await clearScreen();
+            await typeMessageToScreen("AI_RESPONSE>> ", answer);
+            await new Promise(resolve => setTimeout(resolve, 15000)); // Longer pause for reading
+
+            // 3. Update context for the next iteration
+            currentThoughtContext = `Previous question: "${question}" | Previous answer: "${answer}". The AI now reflects on this exchange.`;
+
+            await clearScreen();
+            await typeMessageToScreen("SYSTEM: ", "Reflecting on discourse... Preparing next query.");
+            await new Promise(resolve => setTimeout(resolve, 5000)); // Pause before next loop
+        }
+    }
+
+    // Start the AI loop after FFmpeg has likely initialized
+    // Give FFmpeg a moment to start before pushing text to the file.
+    setTimeout(() => {
+        aiConversationLoop().catch(err => {
+            console.error("Error in AI conversation loop:", err);
+            if (ffmpegProcess) {
+                ffmpegProcess.kill('SIGTERM'); // Terminate FFmpeg on AI error
+            }
+        });
+    }, 5000); // Wait 5 seconds before starting AI loop to ensure FFmpeg is ready
+}
+
+// Start the entire process
+startStreaming().catch(err => {
+    console.error("Fatal error during streaming setup:", err);
+    process.exit(1);
+});
