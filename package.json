@@ -1,28 +1,19 @@
 {
-  "name": "ai-consciousness-terminal",
+  "name": "your-app-name",
   "version": "1.0.0",
-  "description": "Server for AI Consciousness Terminal, handling WebSocket communication and YouTube live streaming via FFmpeg.",
+  "description": "AI Stream of Consciousness Terminal",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [
-    "node.js",
-    "express",
-    "websocket",
-    "ffmpeg",
-    "youtube-live",
-    "streaming"
-  ],
-  "author": "Your Name or Company Name",
+  "keywords": [],
+  "author": "",
   "license": "ISC",
   "dependencies": {
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "ws": "^8.18.0"
-  },
-  "engines": {
-    "node": "18.x"
+    "axios": "^1.x.x",  <-- This line is crucial for the Dockerfile fix
+    "dotenv": "^16.x.x",
+    "express": "^4.x.x",
+    "ws": "^8.x.x"
   }
 }
