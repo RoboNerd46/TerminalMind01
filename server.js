@@ -7,9 +7,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 require('dotenv').config(); // For loading environment variables like YOUTUBE_STREAM_KEY
 
-// Assuming 'axios' will be used for LLM7.io integration.
-// Make sure to install it: npm install axios
-const axios = require('axios'); // Add this line
+const axios = require('axios'); // Correctly import axios
 
 const app = express();
 const server = http.createServer(app);
@@ -18,7 +16,6 @@ const wss = new WebSocket.Server({ server });
 const PORT = process.env.PORT || 10000; // Use PORT environment variable or default to 10000
 
 // Serve static files from the public directory
-// Assuming index.html, CSS, JS will be in a 'public' folder
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- Server State Variables ---
@@ -56,17 +53,13 @@ function broadcast(data) {
 }
 
 function appendToFrameBuffer(text) {
-    // This is a simple append. For a real terminal, you'd need line wrapping
-    // based on `serverConfig.terminalWidth` and handling of scrollback.
     const lines = text.split('\n');
     lines.forEach(line => {
-        // Basic line wrapping
         for (let i = 0; i < line.length; i += serverConfig.terminalWidth) {
             frameBuffer.push(line.substring(i, i + serverConfig.terminalWidth));
         }
     });
 
-    // Keep buffer size manageable (e.g., last 100 lines)
     if (frameBuffer.length > 100) {
         frameBuffer = frameBuffer.slice(-100);
     }
@@ -78,19 +71,17 @@ async function generateAIContent(prompt, llmConfig = {}) {
         console.log(`Sending prompt to LLM7.io: ${prompt.substring(0, 50)}...`);
         const response = await axios.post(LLM7_API_URL, {
             prompt: prompt,
-            max_tokens: llmConfig.max_tokens || 250, // Max tokens for response
-            temperature: llmConfig.temperature || 0.7, // Creativity (0.0 - 1.0)
-            model: llmConfig.model || 'llm7-default', // Specify model if LLM7.io has multiple
-            // ... any other parameters required by LLM7.io
+            max_tokens: llmConfig.max_tokens || 250,
+            temperature: llmConfig.temperature || 0.7,
+            model: llmConfig.model || 'llm7-default',
         }, {
             headers: {
-                // If LLM7_API_KEY is required:
-                // 'Authorization': `Bearer ${LLM7_API_KEY}`,
+                // 'Authorization': `Bearer ${LLM7_API_KEY}`, // Uncomment if LLM7.io requires an API key
                 'Content-Type': 'application/json'
             }
         });
 
-        const generatedText = response.data.generated_text; // Adjust based on actual LLM7.io response
+        const generatedText = response.data.generated_text;
         console.log(`Received AI content: ${generatedText.substring(0, 50)}...`);
         return generatedText;
 
@@ -107,9 +98,9 @@ async function generateAIContent(prompt, llmConfig = {}) {
 // --- AI Stream Generation Loop ---
 let aiStreamInterval = null;
 let currentPrompt = "Initiate an advanced AI consciousness simulation, focusing on the fundamental principles of sentience and self-awareness in the context of digital existence. Begin with a greeting to the observer.";
-let responseBuffer = []; // Holds the full AI response to be typed out
+let responseBuffer = [];
 let typingIndex = 0;
-let typingSpeedDelay = 100; // Milliseconds per character
+let typingSpeedDelay = 100;
 
 async function startAIStream() {
     if (isStreamingAI) return;
@@ -122,14 +113,12 @@ async function startAIStream() {
     broadcast({ type: 'status', message: 'Generating...' });
     broadcast({ type: 'streamStatus', message: 'Active' });
 
-    typingSpeedDelay = serverConfig.typingSpeed * 1000; // Convert config value to milliseconds
+    typingSpeedDelay = serverConfig.typingSpeed * 1000;
 
-    // Function to fetch and type out new content
     const generateAndType = async () => {
         if (!isStreamingAI) return;
 
         if (typingIndex >= responseBuffer.join('\n').length) {
-            // Finished typing current response, get a new one
             currentCycle++;
             if (currentCycle > serverConfig.cycles && serverConfig.cycles > 0) {
                 appendToFrameBuffer("\n[SIMULATION COMPLETE. Shutting down neural pathways...]\n");
@@ -146,21 +135,18 @@ async function startAIStream() {
             broadcast({ type: 'cycleUpdate', cycleCount: currentCycle });
 
             const newContent = await generateAIContent(currentPrompt, {
-                max_tokens: 300, // Longer responses for continuous stream
+                max_tokens: 300,
                 temperature: 0.8
             });
             responseBuffer = newContent.split('\n');
             typingIndex = 0;
-            // Update prompt for next turn to continue conversation
             currentPrompt = `Continue the previous AI reflection, building on "${newContent.substring(0, Math.min(newContent.length, 100))}..."`;
-            appendToFrameBuffer(""); // Add a blank line for new response
+            appendToFrameBuffer("");
         }
 
-        // Type out character by character
         const fullContent = responseBuffer.join('\n');
         if (typingIndex < fullContent.length) {
             const char = fullContent[typingIndex];
-            // Simulate typing by adding char to the last line, or new line if last is full/empty
             if (frameBuffer.length === 0 || frameBuffer[frameBuffer.length - 1].length >= serverConfig.terminalWidth) {
                 frameBuffer.push(char);
             } else {
@@ -175,10 +161,8 @@ async function startAIStream() {
         aiStreamInterval = setTimeout(generateAndType, typingSpeedDelay);
     };
 
-    // Start the first generation and typing
     generateAndType();
 
-    // Set a duration limit if configured
     if (serverConfig.duration > 0) {
         setTimeout(() => {
             if (isStreamingAI) {
@@ -190,7 +174,6 @@ async function startAIStream() {
     }
 }
 
-
 function stopAIStream() {
     console.log('Stopping AI stream...');
     isStreamingAI = false;
@@ -200,22 +183,19 @@ function stopAIStream() {
     }
     broadcast({ type: 'status', message: 'Stopped' });
     broadcast({ type: 'streamStatus', message: 'Off' });
-    typingIndex = 0; // Reset typing
-    responseBuffer = []; // Clear response buffer
+    typingIndex = 0;
+    responseBuffer = [];
 }
-
 
 // --- API Endpoints ---
 
-// Health Check
 app.get('/health', (req, res) => {
     res.status(200).send('OK');
 });
 
-// FFmpeg Test Endpoint
 app.get('/api/test-ffmpeg', (req, res) => {
     console.log('Received request for FFmpeg test.');
-    const ffmpegPath = 'ffmpeg'; // Assumes ffmpeg is in PATH
+    const ffmpegPath = 'ffmpeg';
     const args = ['-version'];
 
     const ffmpeg = spawn(ffmpegPath, args);
@@ -251,24 +231,19 @@ wss.on('connection', ws => {
     console.log('WebSocket client connected');
     broadcast({ type: 'log', message: 'Client connected.' });
 
-    // Send initial status and content to new client
     ws.send(JSON.stringify({ type: 'status', message: isStreamingAI ? 'Active' : 'Ready' }));
     ws.send(JSON.stringify({ type: 'streamStatus', message: isStreamingAI ? 'Live' : 'Off' }));
     ws.send(JSON.stringify({ type: 'terminalContent', terminalContent: frameBuffer }));
     ws.send(JSON.stringify({ type: 'frameCount', frameCount: currentFrame }));
     ws.send(JSON.stringify({ type: 'cycleCount', cycleCount: currentCycle }));
-    ws.send(JSON.stringify({ type: 'configUpdate', ...serverConfig })); // Send current server config
+    ws.send(JSON.stringify({ type: 'configUpdate', ...serverConfig }));
 
-    // --- Heartbeat Logic (Server-side) ---
-    // Track client's last activity
     ws.isAlive = true;
     ws.on('pong', () => {
         ws.isAlive = true;
     });
 
-    // Client message handler
     ws.on('message', async message => {
-        // Mark client as alive on any message received
         ws.isAlive = true;
 
         try {
@@ -276,10 +251,7 @@ wss.on('connection', ws => {
             console.log('Received from client:', data.type);
 
             if (data.type === 'ping') {
-                // Client sent a ping, acknowledge (optional, `ws.isAlive = true` is enough)
-                // If you want to respond with a pong, uncomment:
-                // ws.send(JSON.stringify({ type: 'pong' }));
-                return; // No further processing needed for pings
+                return;
             } else if (data.type === 'startStream') {
                 if (!isStreamingAI) {
                     startAIStream();
@@ -295,9 +267,8 @@ wss.on('connection', ws => {
                     broadcast({ type: 'log', message: 'YouTube streaming disabled in config.' });
                 }
             } else if (data.type === 'configUpdate') {
-                // Update server config based on client's saved settings
                 serverConfig = {
-                    ...serverConfig, // Keep existing defaults
+                    ...serverConfig,
                     duration: data.duration !== undefined ? data.duration : serverConfig.duration,
                     cycles: data.cycles !== undefined ? data.cycles : serverConfig.cycles,
                     typingSpeed: data.typingSpeed !== undefined ? data.typingSpeed : serverConfig.typingSpeed,
@@ -310,23 +281,16 @@ wss.on('connection', ws => {
                 console.log('Server config updated by client:', serverConfig);
                 broadcast({ type: 'log', message: 'Server config updated.' });
 
-                // If typing speed changed, update the interval immediately
                 if (isStreamingAI && aiStreamInterval) {
                     clearTimeout(aiStreamInterval);
                     typingSpeedDelay = serverConfig.typingSpeed * 1000;
-                    // Restart the typing process with new delay, without re-fetching content
-                    // (This requires careful state management, simplified here)
-                    // For now, just ensure the next char will be typed at new speed
-                    // generateAndType(); // if it's currently running, it will re-schedule
                 }
 
-                // Show/hide debug info based on config
                 if (serverConfig.debugMode) {
-                    broadcast({ type: 'debug', debug: { ws: 'Active', ffmpeg: 'Ready' } }); // Example initial debug info
+                    broadcast({ type: 'debug', debug: { ws: 'Active', ffmpeg: 'Ready' } });
                 } else {
-                    broadcast({ type: 'debug', debug: { ws: '-', ffmpeg: '-', fps: '-', buffer: '-' } }); // Clear debug info
+                    broadcast({ type: 'debug', debug: { ws: '-', ffmpeg: '-', fps: '-', buffer: '-' } });
                 }
-
             }
         } catch (error) {
             console.error('Error parsing or handling WebSocket message:', error);
@@ -334,7 +298,6 @@ wss.on('connection', ws => {
         }
     });
 
-    // Client disconnection handler
     ws.on('close', () => {
         console.log('WebSocket client disconnected');
         broadcast({ type: 'log', message: 'Client disconnected.' });
@@ -347,21 +310,18 @@ wss.on('connection', ws => {
 });
 
 // --- Server Heartbeat Check (for dead clients) ---
-// This interval checks if clients are still active. If not, it terminates their connection.
 setInterval(() => {
     wss.clients.forEach(ws => {
         if (!ws.isAlive) {
             console.log('Terminating dead WebSocket connection.');
             return ws.terminate();
         }
-        ws.isAlive = false; // Set to false, client must send a ping (or any message) to set it back to true
-        ws.ping(); // Send a ping frame to the client
+        ws.isAlive = false;
+        ws.ping();
     });
-}, 30000); // Check every 30 seconds (Pings will be sent, clients must pong back)
-
+}, 30000);
 
 // --- YouTube Streaming Logic (Placeholder) ---
-// Note: This requires FFmpeg to be installed on your Render.com service.
 function startYouTubeStream() {
     if (isStreamingYouTube) {
         broadcast({ type: 'log', message: 'YouTube stream already active.' });
@@ -380,13 +340,10 @@ function startYouTubeStream() {
     isStreamingYouTube = true;
     broadcast({ type: 'streamStatus', message: 'Connecting...' });
 
-    // This part is complex and needs actual video source (e.g., a dummy video, or the terminal canvas data)
-    // For a real setup, you'd feed the terminal's canvas frames into FFmpeg.
-    // This is a simplified placeholder.
     youtubeStreamProcess = spawn('ffmpeg', [
-        '-re', // Read input at native frame rate
-        '-f', 'lavfi', '-i', 'color=c=black:s=1280x720:r=30', // Dummy black video input
-        '-f', 'lavfi', '-i', 'sine=frequency=1000:duration=1:sample_rate=44100', // Dummy audio input
+        '-re',
+        '-f', 'lavfi', '-i', 'color=c=black:s=1280x720:r=30',
+        '-f', 'lavfi', '-i', 'sine=frequency=1000:duration=1:sample_rate=44100',
         '-c:v', 'libx264',
         '-preset', 'veryfast',
         '-maxrate', '3000k',
@@ -401,13 +358,11 @@ function startYouTubeStream() {
     ]);
 
     youtubeStreamProcess.stdout.on('data', data => {
-        // console.log(`FFmpeg stdout: ${data}`); // This can be very noisy
+        // console.log(`FFmpeg stdout: ${data}`);
     });
 
     youtubeStreamProcess.stderr.on('data', data => {
-        // FFmpeg often prints progress to stderr
         console.error(`FFmpeg stderr: ${data}`);
-        // You might parse this for stream status updates
     });
 
     youtubeStreamProcess.on('close', code => {
@@ -431,13 +386,13 @@ function startYouTubeStream() {
     });
 
     broadcast({ type: 'log', message: 'FFmpeg process started for YouTube stream.' });
-    broadcast({ type: 'streamStatus', message: 'Live' }); // Optimistic update
+    broadcast({ type: 'streamStatus', message: 'Live' });
 }
 
 function stopYouTubeStream() {
     if (youtubeStreamProcess) {
         console.log('Stopping YouTube stream process...');
-        youtubeStreamProcess.kill('SIGTERM'); // Send termination signal
+        youtubeStreamProcess.kill('SIGTERM');
         youtubeStreamProcess = null;
         broadcast({ type: 'log', message: 'YouTube stream termination requested.' });
     } else {
@@ -445,23 +400,20 @@ function stopYouTubeStream() {
     }
 }
 
-
 // --- Server Start ---
 server.listen(PORT, () => {
     console.log(`🧠 AI Consciousness Terminal running on port ${PORT}`);
-    console.log(`🔄 Keep-alive endpoint: /keep-alive`); // Not explicitly implemented, but typical
+    console.log(`🔄 Keep-alive endpoint: /keep-alive`);
     console.log(`📊 Health check: /health`);
     console.log(`🔧 FFmpeg test: /api/test-ffmpeg`);
     console.log(`📺 YouTube streaming ready (requires YOUTUBE_STREAM_KEY env var)`);
-    // Example: appendToFrameBuffer("Server initialized. Waiting for connection...");
-    // broadcast({type: 'terminalContent', terminalContent: frameBuffer}); // Send initial state to clients
 });
 
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
     console.log('SIGTERM received. Shutting down gracefully.');
     if (youtubeStreamProcess) {
-        youtubeStreamProcess.kill('SIGTERM'); // Ensure FFmpeg process is killed
+        youtubeStreamProcess.kill('SIGTERM');
     }
     wss.close(() => {
         server.close(() => {
