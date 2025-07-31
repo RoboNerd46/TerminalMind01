@@ -4,7 +4,9 @@ const path = require('path');
 
 // --- Configuration ---
 // Make sure to set YOUTUBE_STREAM_KEY in your Render environment variables!
-const YOUTUBE_RTMP_URL = 'rtmp://a.rtmp.youtube.com/live2'; // Make sure this is the EXACT raw URL from your YouTube Live Dashboard
+// IMPORTANT: Changed to the most common and robust YouTube RTMP URL.
+// If this still doesn't work, you MUST get the EXACT "Stream URL" from your YouTube Live Dashboard.
+const YOUTUBE_RTMP_URL = 'rtmp://live.youtube.com/live2';
 const YOUTUBE_STREAM_KEY = process.env.YOUTUBE_STREAM_KEY; // Your key from Render env vars
 
 if (!YOUTUBE_STREAM_KEY) {
@@ -24,11 +26,12 @@ const FONT_SIZE = 24;
 const LINE_HEIGHT = 28; // Adjust based on font size for vertical spacing
 
 // Adjust these offsets to position text *within* your terminal frame image
-// You'll need to measure these based on your `terminal_frame.png`
-const TEXT_X_OFFSET = 60; // Example: Offset from left edge of video to start text
-const TEXT_Y_OFFSET_START = 80; // Example: Offset from top edge of video to start text
+// You will need to measure these precisely based on your `terminal_frame.png`
+// These are initial estimates based on your desired look:
+const TEXT_X_OFFSET = 60; // Offset from left edge of video to start text
+const TEXT_Y_OFFSET_START = 80; // Offset from top edge of video to start text
 
-const MAX_SCREEN_LINES = Math.floor((VIDEO_HEIGHT - TEXT_Y_OFFSET_START - 60) / LINE_HEIGHT); // Adjusted for bottom margin of frame
+const MAX_SCREEN_LINES = Math.floor((VIDEO_HEIGHT - TEXT_Y_OFFSET_START - 60) / LINE_HEIGHT); // Adjusted for approximate bottom margin of frame
 const TYPING_SPEED_MS_PER_CHAR = 80; // Delay between characters for simulated typing
 
 // Flicker effect (using alpha modulation for text color)
@@ -36,7 +39,8 @@ const FLICKER_EFFECT_ALPHA = "0.9 + 0.1*sin(100*PI*t)";
 const FONT_COLOR = '0x00FF00'; // Green color
 
 // Path to your transparent terminal frame image
-const TERMINAL_FRAME_IMAGE_PATH = path.join(__dirname, 'terminal_frame.png'); // Assuming 'terminal_frame.png' is in the same directory as server.js
+// IMPORTANT: Ensure 'terminal_frame.png' is in the same directory as server.js
+const TERMINAL_FRAME_IMAGE_PATH = path.join(__dirname, 'terminal_frame.png');
 
 // Temporary file to store current screen content for FFmpeg to read
 const SCREEN_TEXT_FILE = '/tmp/current_screen_text.txt';
@@ -215,21 +219,6 @@ async function startStreaming() {
         console.error('Failed to start FFmpeg process:', err);
     });
 
-    process.on('SIGINT', () => {
-        console.log('Received SIGINT. Terminating FFmpeg process...');
-        if (ffmpegProcess) {
-            ffmpegProcess.kill('SIGTERM');
-        }
-        process.exit(0);
-    });
-    process.on('SIGTERM', () => {
-        console.log('Received SIGTERM. Terminating FFmpeg process...');
-        if (ffmpegProcess) {
-            ffmpegProcess.kill('SIGTERM');
-        }
-        process.exit(0);
-    });
-
     console.log('FFmpeg stream process started.');
     console.log(`Streaming to: ${STREAM_TARGET}`);
 
@@ -297,6 +286,23 @@ async function startStreaming() {
         });
     }, 5000);
 }
+
+// Handle process exit gracefully (e.g., if Render stops the service)
+// Moved outside startStreaming so they are only registered once.
+process.on('SIGINT', () => {
+    console.log('Received SIGINT. Terminating FFmpeg process...');
+    if (ffmpegProcess) {
+        ffmpegProcess.kill('SIGTERM'); // Send SIGTERM to FFmpeg
+    }
+    process.exit(0);
+});
+process.on('SIGTERM', () => {
+    console.log('Received SIGTERM. Terminating FFmpeg process...');
+    if (ffmpegProcess) {
+        ffmpegProcess.kill('SIGTERM'); // Send SIGTERM to FFmpeg
+    }
+    process.exit(0);
+});
 
 // Start the entire process
 startStreaming().catch(err => {
